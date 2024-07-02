@@ -1,0 +1,15 @@
+NAME = mal
+DESCRIPTION = "Make-a-lisp for the Agon Light"
+COMPRESSED = NO
+
+# Set BSSHEAP_LOW to the byte after the end of the program (.rodata section)
+BSSHEAP_LOW=50000
+# The memory between BSSHEAP_LOW and BSSHEAP_HIGH will be used for the heap
+BSSHEAP_HIGH=ABFFF
+STACK_HIGH=AFFFF
+# MOS area is B.0000 - B.FFFF
+
+#DEBUGMODE?=_DEBUG
+#CFLAGS = -Iinclude -std=c99 -Wall -Wextra -Os -DAGON_LIGHT -DZ80 -DEZ80 -Wno-unused-parameter
+
+include $(shell cedev-config --makefile)
