@@ -57,14 +57,21 @@ _main:
   RESTORE_STACK 9
 
   CP A, 27
-  JR Z, .got_escape
+  JR Z, .no_input
+
+  LEA IY, IX - 80
+
+  LD A, (IY)
+  AND A
+  JR Z, .no_input
+  CP A, 0x0a
+  JR Z, .no_input
 
   ; need to add whitespace to terminate the token
   ; int l = strlen(s);
   ; s[l] = ' ';
   ; s[l+1] = '\0';
   ; rv = s;
-  LEA IY, IX - 80
   PUSH IY
   CALL _strlen
   POP IY
@@ -74,9 +81,7 @@ _main:
   LD (IY), ' '
   LD (IY + 1), 0
 
-.done:
   LEA HL, IX - 80
-
   PUSH HL
   CALL rep
   POP DE
@@ -92,16 +97,12 @@ _main:
   POP HL
   POP DE
 
+.no_input:
   CALL fputnewline
-
   JR .loop
 
   END_FRAME
   RET
-
-.got_escape:
-  LD (IX - 80), 0
-  JR .done
 
 fputnewline:
   LD HL, _stdout
