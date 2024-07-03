@@ -1,3 +1,5 @@
 bin/
 obj/
 fab-agon-emulator
+build/
+compile_flags.txt

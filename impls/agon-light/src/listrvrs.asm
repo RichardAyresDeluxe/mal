@@ -1,6 +1,6 @@
 assume adl=1
 
-include "frame.inc"
+include "common.inc"
 
 section .text
 
@@ -11,8 +11,8 @@ _linked_list_reverse:
                   ;; (IX - 6) = reversed
 
   ;; reversed = NULL
-  LD BC, 0
-  LD (IX - 6), BC
+  ZERO_HL
+  LD (IX - 6), HL
 
   ;; head = *head_ref
   LD HL, (IX + 6)

@@ -16,7 +16,10 @@ begin_frame3:
   PUSH IX
   LD IX, 0
   ADD IX, SP
-  JR begin_frame6.skip3
+  DEC SP
+  DEC SP
+  DEC SP
+  JP (HL)
 
 begin_frame6:
   ; LEA HL, IX + 0    ;; HL = old IX                            3 / 3
@@ -27,10 +30,10 @@ begin_frame6:
 
   LD IX, 0
   ADD IX, SP
+
   DEC SP
   DEC SP
   DEC SP
-.skip3:
   DEC SP
   DEC SP
   DEC SP

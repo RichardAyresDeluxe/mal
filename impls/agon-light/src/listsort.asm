@@ -168,17 +168,15 @@ _linked_list_sort_raw:
 
   ;; if (head == NULL || head->next == NULL)
   ;;    return;
-  LD A, (IX - 1)
-  OR H
-  OR L
+  ADD HL, BC
+  RCF
+  SBC HL, BC
   JR Z, .done
 
-  LD DE, (HL)
-  INC HL
-  INC HL
-  LD A, (HL)
-  OR D
-  OR E
+  LD HL, (HL)
+  ADD HL, BC
+  RCF
+  SBC HL, BC
   JR Z, .done
 
 
