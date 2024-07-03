@@ -1,0 +1,34 @@
+include "struct.inc"
+
+struct token
+  .next   rb 3
+  .value  rb 3
+  .type   rb 1
+  .pos    rb 1
+  .line   rb 3
+  .garbage rb 3
+ends
+
+TOKEN_TYPE_STRING         EQU 0x01  
+TOKEN_TYPE_NUMBER         EQU 0x02  
+TOKEN_TYPE_COMMENT        EQU 0x03  
+TOKEN_TYPE_METADATA       EQU 0x04  
+TOKEN_TYPE_KEYWORD        EQU 0x05  
+TOKEN_TYPE_SYMBOL         EQU 0x06  
+TOKEN_TYPE_CHAR           EQU 0x07  
+TOKEN_TYPE_SYMBOL_REF     EQU 0x08  
+TOKEN_TYPE_LIST_START     EQU 0x80  
+TOKEN_TYPE_LIST_END       EQU 0xC0  
+TOKEN_TYPE_MAP_START      EQU 0x81  
+TOKEN_TYPE_MAP_END        EQU 0xC1  
+TOKEN_TYPE_VEC_START      EQU 0x82  
+TOKEN_TYPE_VEC_END        EQU 0xC2  
+TOKEN_TYPE_SET_START      EQU 0x83  
+TOKEN_TYPE_SET_END        EQU 0xC3  
+TOKEN_TYPE_LAMBDA_START   EQU 0x84  
+TOKEN_TYPE_LAMBDA_END     EQU 0xC4  
+
+META_TOKEN_CONTAINER      EQU 0x80  
+META_TOKEN_START_END      EQU 0xC0  
+META_TOKEN_START          EQU 0x80  
+META_TOKEN_END            EQU 0xC0  

@@ -1,5 +1,6 @@
 include "frame.inc"
 include "struct.inc"
+include "err.inc"
 
 macro RCF
 	;; reset carry flag
@@ -34,3 +35,8 @@ macro RESTORE_STACK n
 	end if
 end macro
 
+macro ZERO_HL
+	;; set HL to 0
+	RCF
+	SBC HL, HL
+end macro
