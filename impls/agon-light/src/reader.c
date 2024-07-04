@@ -234,10 +234,6 @@ static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt)
     err_fatal(ERR_INVALID_OPERATION, "request for zero characters on input");
 
   lex_token_t *tok = lex_get_tokens(lexer);
-#if STEP1
-  if (tok)
-    return NULL;
-#endif
   int depth = token_depth(tok);
 
   if (tok && depth == 0)
