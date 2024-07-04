@@ -4,12 +4,11 @@
 #include "malval.h"
 
 struct ENV;
-
-struct ENV {
-  const char *name;
-  MalVal *value;
-};
-
 typedef struct ENV ENV;
+
+ENV *env_create(ENV *parent);
+void env_destroy(ENV*);
+void env_add(ENV *env, const char *key, MalVal *val);
+MalVal *env_find(ENV *env, const char *key);
 
 #endif /* _ENV_H */
