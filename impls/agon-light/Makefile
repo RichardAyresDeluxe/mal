@@ -1,15 +1,56 @@
-NAME = mal
-DESCRIPTION = "Make-a-lisp for the Agon Light"
-COMPRESSED = NO
+OBJDIR=build
+C_FILES=$(wildcard src/*.c)
+BUILTIN_C_FILES=$(wildcard src/builtins/*.c)
+OBJ_FILES=$(patsubst src/%.c,$(OBJDIR)/%.o,$(C_FILES))
+BUILTIN_OBJ_FILES+=$(patsubst src/builtins/%.c,$(OBJDIR)/builtins/%.o,$(BUILTIN_C_FILES))
+LIB_BUILTINS=$(OBJDIR)/libbuiltins.a
+LIBS=-lm
+CC=gcc
+LD=gcc
+CFLAGS=-Iinclude -I. -Wall -Wpedantic -Werror -std=c99 -MMD
+DEBUG=1
+PROFILE=0
 
-# Set BSSHEAP_LOW to the byte after the end of the program (.rodata section)
-BSSHEAP_LOW=50000
-# The memory between BSSHEAP_LOW and BSSHEAP_HIGH will be used for the heap
-BSSHEAP_HIGH=ABFFF
-STACK_HIGH=AFFFF
-# MOS area is B.0000 - B.FFFF
+ifeq ($(PROFILE), 1)
+	CFLAGS+=-O2 -pg -DNDEBUG
+	LDFLAGS+=-pg
+else
+	ifeq ($(DEBUG), 1)
+		CFLAGS+=-Og -g -D_DEBUG
+	else
+		CFLAGS+=-O2 -DNDEBUG
+	endif
+endif
 
-DEBUGMODE?=_DEBUG
-CFLAGS = -Iinclude -std=c99 -Wall -Wextra -Os -DAGON_LIGHT -DEZ80 -Wno-unused-parameter
+all: $(OBJDIR)/mal tags
 
-include $(shell cedev-config --makefile)
+clean:
+	rm -f $(OBJDIR)/*.[oda] $(OBJDIR)/builtins/*.[oda]
+
+tags:
+	@find . -name '*.h' -o -name '*.c' | ctags -
+
+$(OBJDIR)/%.o:src/%.c
+	${CC} ${CFLAGS} -c -o $@ $<  
+
+$(LIB_BUILTINS): $(BUILTIN_OBJ_FILES)
+	ar rcs $@ $^
+
+$(OBJDIR)/mal: ${OBJ_FILES} ${LIB_BUILTINS}
+	${LD} ${LDFLAGS} -Xlinker -Map=$(patsubst $(OBJDIR)/%,$(OBJDIR)/%.map,$@) \
+		-o $@ ${OBJ_FILES} ${LIB_BUILTINS} ${LIBS}
+
+step1_read_print: $(OBJDIR)/mal
+	@rm -f $@
+	@ln $< $@
+
+.PHONY: all clean tags
+
+ifneq ($(wildcard $(OBJDIR)/*.d), )
+include $(wildcard $(OBJDIR)/*.d)
+endif
+
+ifneq ($(wildcard $(OBJDIR)/builtins/*.d), )
+include $(wildcard $(OBJDIR)/builtins/*.d)
+endif
+

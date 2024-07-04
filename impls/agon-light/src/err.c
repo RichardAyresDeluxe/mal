@@ -17,5 +17,5 @@ void err_fatal(int err, const char *msg, ...)
   if (msg)
     fputs(msg, stderr);
   fputc('\n', stderr);
-  abort();
+  exit(err);
 }

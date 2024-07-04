@@ -3,6 +3,6 @@
 
 #include "malval.h"
 
-extern const MalVal *read_str(void);
+extern MalVal *read_str(void);
 
 #endif /*_READER_H*/

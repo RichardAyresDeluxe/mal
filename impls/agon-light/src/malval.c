@@ -15,6 +15,7 @@ MalVal *malval_create(uint8_t type)
 void malval_free(MalVal *val)
 {
   switch(val->type) {
+    case TYPE_STRING:
     case TYPE_SYMBOL:
       heap_free(val->data.data);
       break;

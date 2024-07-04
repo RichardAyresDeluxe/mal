@@ -6,26 +6,26 @@
 #include "reader.h"
 #include "printer.h"
 
-const MalVal *EVAL(const MalVal *data)
+MalVal *EVAL(MalVal *data)
 {
+  gc_mark(data, NULL);
+  gc(FALSE);
   return data;
 }
 
-const MalVal *READ(void)
+MalVal *READ(void)
 {
   return read_str();
 }
 
 const char *PRINT(const MalVal *val)
 {
-  return pr_str(val);
+  return pr_str(val, TRUE);
 }
 
 const char *rep(void)
 {
-  const MalVal *val = READ();
-  if (!val)
-    return NULL;
+  MalVal *val = READ();
   val = EVAL(val);
   const char *s = PRINT(val);
   return s;

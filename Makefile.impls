@@ -34,7 +34,7 @@ wasm_MODE = wasmtime
 # Implementation specific settings
 #
 
-IMPLS = ada ada.2 awk bash basic bbc-basic c c.2 chuck clojure coffee common-lisp cpp crystal cs d dart \
+IMPLS = ada ada.2 agon-light awk bash basic bbc-basic c c.2 chuck clojure coffee common-lisp cpp crystal cs d dart \
 	elisp elixir elm erlang es6 factor fantom fennel forth fsharp go groovy gnu-smalltalk \
 	guile haskell haxe hy io janet java java-truffle js jq julia kotlin livescript logo lua make mal \
 	matlab miniMAL nasm nim objc objpascal ocaml perl perl6 php picolisp pike plpgsql \
@@ -83,6 +83,8 @@ xslt_TEST_OPTS = --test-timeout 120
 #
 # Implementation specific utility functions
 #
+
+agon-light_STEP_TO_PROG         = impls/agon-light/$($(1))
 
 basic_STEP_TO_PROG_cbm          = impls/basic/$($(1)).bas
 basic_STEP_TO_PROG_qbasic       = impls/basic/$($(1))
