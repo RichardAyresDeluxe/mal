@@ -207,6 +207,11 @@ static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt)
   if (n == 0)
     err_fatal(ERR_INVALID_OPERATION, "request for zero characters on input");
 
+  lex_token_t *tok = lex_get_tokens(lexer);
+  int depth = token_depth(tok);
+  if (tok && depth == 0)
+    return NULL;
+
   fputs(prompt, stdout);
 
   char c = mos_editline(s, n-1, 0x05); //0b00000101
@@ -235,7 +240,6 @@ static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt)
 
   lex_token_t *tok = lex_get_tokens(lexer);
   int depth = token_depth(tok);
-
   if (tok && depth == 0)
     return NULL;
 
