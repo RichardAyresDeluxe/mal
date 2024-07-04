@@ -9,13 +9,11 @@
 #include "reader.h"
 #include "printer.h"
 #include "env.h"
-#include "heap.h"
 #include "err.h"
 #include "listsort.h"
 
-MalVal *EVAL(MalVal *ast, ENV *env);
-
 ENV *repl_env = NULL;
+MalVal *EVAL(MalVal *ast, ENV *env);
 
 static MalVal *plus(MalList *args, ENV *env)
 {
@@ -69,11 +67,11 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
 {
   if (ast->type == TYPE_SYMBOL)
   {
-    for (ENV *env = repl_env; env && env->name != NULL; env++) {
-      if (strcmp(env->name, ast->data.string) == 0)
-        return env->value;
-    }
-    err_warning(ERR_ARGUMENT_MISMATCH, "Unknown symbol", env->name);
+    MalVal *value = env_find(env, ast->data.string);
+    if (value)
+      return value;
+
+    err_warning(ERR_ARGUMENT_MISMATCH, "Unknown symbol", ast->data.string);
     return NIL;
   }
 
@@ -180,15 +178,15 @@ static void build_env(void)
     {"/", divide},
   };
 
-  int n = sizeof(fns)/sizeof(fns[0]);
-  repl_env = heap_malloc(sizeof(ENV) * (n + 1));
+  repl_env = env_create(NULL);
 
-  for (int i=0; i < n; i++) {
-    repl_env[i].name = fns[i].name;
-    repl_env[i].value = malval_function(fns[i].fn);
+  for (int i=0; i < sizeof(fns)/sizeof(fns[0]); i++) {
+    env_add(repl_env, fns[i].name, malval_function(fns[i].fn));
   }
-  repl_env[n].name = NULL;
-  repl_env[n].value = NULL;
+
+  env_add(repl_env, "nil", NIL);
+  env_add(repl_env, "true", T);
+  env_add(repl_env, "false", F);
 }
   
 int main(int argc, char **argv)
