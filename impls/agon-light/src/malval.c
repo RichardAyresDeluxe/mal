@@ -31,6 +31,41 @@ MalVal *malval_list(MalList *list)
   return val;
 }
 
+MalVal *malval_vector(MalList *list)
+{
+  MalVal *val = malval_create(TYPE_VECTOR);
+  val->data.list = mallist_acquire(list);
+  return val;
+}
+
+MalVal *malval_map(MalList *list)
+{
+  MalVal *val = malval_create(TYPE_MAP);
+  val->data.list = mallist_acquire(list);
+  return val;
+}
+
+MalVal *malval_number(int number)
+{
+  MalVal *val = malval_create(TYPE_NUMBER);
+  val->data.number = number;
+  return val;
+}
+
+MalVal *malval_function(FUNCTION *fn)
+{
+  MalVal *val = malval_create(TYPE_FUNCTION);
+  val->data.fn = fn;
+  return val;
+}
+
+MalVal *malval_bool(bool b)
+{
+  MalVal *val = malval_create(TYPE_BOOL);
+  val->data.bool = b;
+  return val;
+}
+
 void malval_free(MalVal *val)
 {
   switch(val->type) {

@@ -7,7 +7,7 @@ LIB_BUILTINS=$(OBJDIR)/libbuiltins.a
 LIBS=-lm
 CC=gcc
 LD=gcc
-CFLAGS=-Iinclude -I. -Wall -Wpedantic -Werror -std=c99 -MMD -DSTEP1
+CFLAGS=-Iinclude -I. -Wall -Wpedantic -Werror -std=c99 -MMD
 DEBUG=1
 PROFILE=0
 
@@ -42,6 +42,10 @@ $(OBJDIR)/mal: ${OBJ_FILES} ${LIB_BUILTINS}
 		-o $@ ${OBJ_FILES} ${LIB_BUILTINS} ${LIBS}
 
 step1_read_print: $(OBJDIR)/mal
+	@rm -f $@
+	@ln -s $< $@
+
+step2_eval: $(OBJDIR)/mal
 	@rm -f $@
 	@ln -s $< $@
 

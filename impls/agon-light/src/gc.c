@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include "gc.h"
 #include "mallist.h"
+#include "env.h"
 
 static MalVal *all_values = NULL;
 static unsigned values_count = 0;
@@ -68,4 +69,10 @@ void value_info(unsigned *count, unsigned *size)
     (*count)++;
     *size = *size + malval_size(rover, FALSE);
   }
+}
+
+void gc_mark_env(struct ENV *env, void *data)
+{
+  for (ENV *rover = env; rover && rover->name != NULL; rover++)
+    gc_mark(rover->value, data);
 }
