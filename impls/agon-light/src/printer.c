@@ -9,6 +9,7 @@ extern char *strdup(const char *);
 
 static const char *pr_str_list(MalList *list);
 static const char *pr_str_vector(MalList *list);
+static const char *pr_str_map(MalList *list);
 static const char *pr_str_readable(const char *);
 
 const char *pr_str(const MalVal *val, bool readable)
@@ -25,6 +26,9 @@ const char *pr_str(const MalVal *val, bool readable)
 
     case TYPE_VECTOR:
       return pr_str_vector(val->data.vec);
+
+    case TYPE_MAP:
+      return pr_str_map(val->data.map);
 
     case TYPE_STRING:
       if (readable) {
@@ -98,6 +102,11 @@ const char *pr_str_list(MalList *list)
 const char *pr_str_vector(MalList *list)
 {
   return pr_str_container('[', ']', list);
+}
+
+const char *pr_str_map(MalList *map)
+{
+  return pr_str_container('{', '}', map);
 }
 
 static char *catchar(char **sptr, char c)

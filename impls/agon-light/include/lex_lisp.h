@@ -30,4 +30,6 @@ extern const char *get_token_name(token_type_t);
 #define META_TOKEN_START        0x80  /* 0b10000000 */
 #define META_TOKEN_END          0xC0  /* 0b11000000 */
 
+#define TOKEN_IS_END(token) (((token)->type & META_TOKEN_START_END) == META_TOKEN_END)
+
 #endif /* _LEX_LISP_H */

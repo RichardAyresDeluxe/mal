@@ -17,6 +17,7 @@ typedef uint8_t bool;
 #define TYPE_BOOL     0x12
 #define TYPE_LIST     0x21
 #define TYPE_VECTOR   0x22
+#define TYPE_MAP      0x23
 #define TYPE_STRING   0x31
 #define TYPE_SYMBOL   0x32
 
@@ -29,6 +30,7 @@ typedef struct MalVal {
     int number;
     struct MalList *list;
     struct MalList *vec;
+    struct MalList *map;
     const char *string;
     void *data;
   } data;

@@ -15,6 +15,7 @@ static MalVal *read_form(lex_token_t *tokens, lex_token_t **next);
 static MalVal *read_atom(lex_token_t *tokens, lex_token_t **next);
 static MalVal *read_list(lex_token_t *tokens, lex_token_t **next);
 static MalVal *read_vector(lex_token_t *tokens, lex_token_t **next);
+static MalVal *read_map(lex_token_t *tokens, lex_token_t **next);
 
 MalVal *read_str(void)
 {
@@ -37,6 +38,8 @@ MalVal *read_form(lex_token_t *token, lex_token_t **next)
       return read_list(token->next, next);
     case TOKEN_TYPE_VEC_START:
       return read_vector(token->next, next);
+    case TOKEN_TYPE_MAP_START:
+      return read_map(token->next, next);
   }
 
   return read_atom(token, next);
@@ -103,12 +106,11 @@ MalVal *read_list(lex_token_t *token, lex_token_t **next)
   MalList *list = NULL;
   lex_token_t *rover = token;
 
-  while (rover && rover->type != TOKEN_TYPE_LIST_END) {
+  while (rover && !TOKEN_IS_END(rover)) {
     list = cons(read_form(rover, &rover), list);
   }
 
-  if (rover)
-    *next = rover->next;
+  *next = rover ? rover->next : NULL;
 
   linked_list_reverse((void**)&list);
 
@@ -119,20 +121,15 @@ MalVal *read_list(lex_token_t *token, lex_token_t **next)
 
 MalVal *read_vector(lex_token_t *token, lex_token_t **next)
 {
-  MalList *list = NULL;
-  lex_token_t *rover = token;
+  MalVal *val = read_list(token, next);
+  val->type = TYPE_VECTOR;
+  return val;
+}
 
-  while (rover && rover->type != TOKEN_TYPE_VEC_END) {
-    list = cons(read_form(rover, &rover), list);
-  }
-
-  if (rover)
-    *next = rover->next;
-
-  linked_list_reverse((void**)&list);
-
-  MalVal *val = malval_create(TYPE_VECTOR);
-  val->data.vec = list;
+static MalVal *read_map(lex_token_t *token, lex_token_t **next)
+{
+  MalVal *val = read_list(token, next);
+  val->type = TYPE_MAP;
   return val;
 }
 
