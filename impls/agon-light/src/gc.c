@@ -6,6 +6,8 @@
 #include "mallist.h"
 #include "env.h"
 
+extern ENV *repl_env;
+
 static MalVal *all_values = NULL;
 static unsigned values_count = 0;
 static unsigned values_max = 64;
@@ -49,6 +51,7 @@ void gc(bool force)
   if (!force && (values_count <= values_max))
     return;
 
+  gc_mark_env(repl_env, NULL);
   sweep();
 
   values_max = 2 * values_count;

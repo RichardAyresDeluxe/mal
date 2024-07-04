@@ -67,7 +67,7 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
 {
   if (ast->type == TYPE_SYMBOL)
   {
-    MalVal *value = env_find(env, ast->data.string);
+    MalVal *value = env_get(env, ast->data.string);
     if (value)
       return value;
 
@@ -159,6 +159,8 @@ static void cleanup(void)
 {
   unsigned count, size;
 
+  env_destroy(repl_env);
+  repl_env = NULL;
   gc(TRUE);
 
   value_info(&count, &size);
@@ -180,13 +182,13 @@ static void build_env(void)
 
   repl_env = env_create(NULL);
 
-  for (int i=0; i < sizeof(fns)/sizeof(fns[0]); i++) {
-    env_add(repl_env, fns[i].name, malval_function(fns[i].fn));
+  for (unsigned i=0; i < sizeof(fns)/sizeof(fns[0]); i++) {
+    env_set(repl_env, fns[i].name, malval_function(fns[i].fn));
   }
 
-  env_add(repl_env, "nil", NIL);
-  env_add(repl_env, "true", T);
-  env_add(repl_env, "false", F);
+  env_set(repl_env, "nil", NIL);
+  env_set(repl_env, "true", T);
+  env_set(repl_env, "false", F);
 }
   
 int main(int argc, char **argv)
@@ -202,7 +204,6 @@ int main(int argc, char **argv)
     }
     fputs(s, stdout);
     fputc('\n', stdout);
-    gc_mark_env(repl_env, NULL);
     gc(FALSE);
   }
 }
