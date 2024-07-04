@@ -1,0 +1,20 @@
+#ifndef _MAP_H
+#define _MAP_H
+
+#include "malval.h"
+
+struct Map;
+typedef struct Map Map;
+
+Map *map_create(void);
+void map_destroy(Map*);
+void map_add(Map *, const char *key, MalVal *value);
+void map_remove(Map *, const char *key);
+
+/** returns NULL if not found */
+MalVal *map_find(Map *, const char *key);
+void map_foreach(Map *, MalValProc, void*);
+
+void gc_mark_map(Map *, void*);
+
+#endif /* _MAP_H */
