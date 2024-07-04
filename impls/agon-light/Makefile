@@ -7,7 +7,7 @@ LIB_BUILTINS=$(OBJDIR)/libbuiltins.a
 LIBS=-lm
 CC=gcc
 LD=gcc
-CFLAGS=-Iinclude -I. -Wall -Wpedantic -Werror -std=c99 -MMD
+CFLAGS=-Iinclude -I. -Wall -Wpedantic -Werror -std=c99 -MMD -DSTEP1
 DEBUG=1
 PROFILE=0
 
@@ -26,6 +26,7 @@ all: $(OBJDIR)/mal tags
 
 clean:
 	rm -f $(OBJDIR)/*.[oda] $(OBJDIR)/builtins/*.[oda]
+	rm -f step1_read_print
 
 tags:
 	@find . -name '*.h' -o -name '*.c' | ctags -
@@ -42,7 +43,7 @@ $(OBJDIR)/mal: ${OBJ_FILES} ${LIB_BUILTINS}
 
 step1_read_print: $(OBJDIR)/mal
 	@rm -f $@
-	@ln $< $@
+	@ln -s $< $@
 
 .PHONY: all clean tags
 

@@ -8,8 +8,6 @@
 
 MalVal *EVAL(MalVal *data)
 {
-  gc_mark(data, NULL);
-  gc(FALSE);
   return data;
 }
 
@@ -30,16 +28,25 @@ const char *rep(void)
   const char *s = PRINT(val);
   return s;
 }
+
+static void cleanup(void)
+{
+  unsigned count, size;
+
+  gc(TRUE);
+
+  value_info(&count, &size);
+
+  printf("\nValues remaining: %u (%u bytes)\n", count, size);
+}
   
 int main(int argc, char **argv)
 {
+  atexit(cleanup);
+
   while (1) {
     const char *s = rep();
     if (!s) {
-      gc(TRUE);
-      unsigned count, size;
-      value_info(&count, &size);
-      printf("\nValues remaining: %u (%u bytes)\n", count, size);
       exit(0);
     }
     fputs(s, stdout);

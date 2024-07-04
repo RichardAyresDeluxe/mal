@@ -40,6 +40,8 @@ typedef void (*MalValProc)(MalVal *, void *);
 
 MalVal *malval_create(uint8_t type);
 #define malval_nil() malval_create(TYPE_NIL)
+MalVal *malval_symbol(const char *);
+MalVal *malval_list(struct MalList*);
 
 #define VAL_IS_NIL(val) ((val)->type == TYPE_NIL)
 

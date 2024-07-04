@@ -1,7 +1,12 @@
+#include <string.h>
+
 #include "malval.h"
 #include "mallist.h"
 #include "heap.h"
 #include "gc.h"
+
+/* not in C99 */
+extern char *strdup(const char*);
 
 MalVal *malval_create(uint8_t type)
 {
@@ -12,12 +17,26 @@ MalVal *malval_create(uint8_t type)
   return val;
 }
 
+MalVal *malval_symbol(const char *s)
+{
+  MalVal *val = malval_create(TYPE_SYMBOL);
+  val->data.string = strdup(s);
+  return val;
+}
+
+MalVal *malval_list(MalList *list)
+{
+  MalVal *val = malval_create(TYPE_LIST);
+  val->data.list = mallist_acquire(list);
+  return val;
+}
+
 void malval_free(MalVal *val)
 {
   switch(val->type) {
     case TYPE_STRING:
     case TYPE_SYMBOL:
-      heap_free(val->data.data);
+      heap_free(val->data.string);
       break;
     case TYPE_LIST:
       mallist_release(val->data.list);

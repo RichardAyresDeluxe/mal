@@ -11,11 +11,13 @@
 extern char *strdup(const char *);
 
 static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt);
-static MalVal *read_form(lex_token_t *tokens, lex_token_t **next);
-static MalVal *read_atom(lex_token_t *tokens, lex_token_t **next);
-static MalVal *read_list(lex_token_t *tokens, lex_token_t **next);
-static MalVal *read_vector(lex_token_t *tokens, lex_token_t **next);
-static MalVal *read_map(lex_token_t *tokens, lex_token_t **next);
+static MalVal *read_form(lex_token_t *token, lex_token_t **next);
+static MalVal *read_atom(lex_token_t *token, lex_token_t **next);
+static MalVal *read_list(lex_token_t *token, lex_token_t **next);
+static MalVal *read_vector(lex_token_t *token, lex_token_t **next);
+static MalVal *read_map(lex_token_t *token, lex_token_t **next);
+static MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next);
+static MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next);
 
 MalVal *read_str(void)
 {
@@ -33,6 +35,10 @@ MalVal *read_str(void)
 
 MalVal *read_form(lex_token_t *token, lex_token_t **next)
 {
+  if (!token) {
+    err_fatal(ERR_LEXER_ERROR, "Out of tokens");
+  }
+
   switch(token->type) {
     case TOKEN_TYPE_LIST_START:
       return read_list(token->next, next);
@@ -95,10 +101,22 @@ MalVal *read_atom(lex_token_t *token, lex_token_t **next)
       *next = token->next;
       return val;
 
+    case TOKEN_TYPE_QUOTE:
+      return reader_macro("quote", token->next, next);
+    case TOKEN_TYPE_QUASIQUOTE:
+      return reader_macro("quasiquote", token->next, next);
+    case TOKEN_TYPE_DEREF:
+      return reader_macro("deref", token->next, next);
+    case TOKEN_TYPE_UNQUOTE:
+      return reader_macro("unquote", token->next, next);
+    case TOKEN_TYPE_UNQUOTESPLICE:
+      return reader_macro("splice-unquote", token->next, next);
+    case TOKEN_TYPE_WITHMETA:
+      return reader_withmeta(token->next, next);
   }
       
-  err_fatal(ERR_LEXER_ERROR, "Unknown token");
-  return NULL;
+  err_warning(ERR_LEXER_ERROR, "Unknown token");
+  return malval_nil();
 }
 
 MalVal *read_list(lex_token_t *token, lex_token_t **next)
@@ -126,11 +144,46 @@ MalVal *read_vector(lex_token_t *token, lex_token_t **next)
   return val;
 }
 
-static MalVal *read_map(lex_token_t *token, lex_token_t **next)
+MalVal *read_map(lex_token_t *token, lex_token_t **next)
 {
   MalVal *val = read_list(token, next);
   val->type = TYPE_MAP;
   return val;
+}
+
+MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
+{
+  MalVal *rv;
+  MalList *list = NULL;
+
+  if (!token) {
+    err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");
+    return malval_nil();
+  }
+
+  list = cons(read_form(token, next), list);
+  list = cons(malval_symbol(name), list);
+  rv = malval_list(list);
+  mallist_release(list);
+  return rv;
+}
+
+MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next)
+{
+  MalVal *rv;
+  MalList *list = NULL;
+
+  if (!token) {
+    err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");
+    return malval_nil();
+  }
+
+  list = cons(read_form(token, &token), list);
+  list = cons(read_form(token, next), list);
+  list = cons(malval_symbol("with-meta"), list);
+  rv = malval_list(list);
+  mallist_release(list);
+  return rv;
 }
 
 static int token_depth(lex_token_t *tok)
@@ -181,6 +234,10 @@ static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt)
     err_fatal(ERR_INVALID_OPERATION, "request for zero characters on input");
 
   lex_token_t *tok = lex_get_tokens(lexer);
+#if STEP1
+  if (tok)
+    return NULL;
+#endif
   int depth = token_depth(tok);
 
   if (tok && depth == 0)

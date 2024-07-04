@@ -14,6 +14,14 @@ extern const char *get_token_name(token_type_t);
 #define TOKEN_TYPE_SYMBOL       0x06  /* 0b00000110 */
 #define TOKEN_TYPE_CHAR         0x07  /* 0b00000111 */
 #define TOKEN_TYPE_SYMBOL_REF   0x08  /* 0b00001000 */
+
+#define TOKEN_TYPE_QUOTE        0x09  /* ' */
+#define TOKEN_TYPE_QUASIQUOTE   0x0A  /* ` */ 
+#define TOKEN_TYPE_DEREF        0x0B  /* @ */ 
+#define TOKEN_TYPE_UNQUOTE      0x0C  /* ~ */ 
+#define TOKEN_TYPE_UNQUOTESPLICE 0x0D  /* ~@ */ 
+#define TOKEN_TYPE_WITHMETA     0x0E  /* ^ */
+
 #define TOKEN_TYPE_LIST_START   0x80  /* 0b10000000 */
 #define TOKEN_TYPE_LIST_END     0xC0  /* 0b11000000 */
 #define TOKEN_TYPE_MAP_START    0x81  /* 0b10000001 */

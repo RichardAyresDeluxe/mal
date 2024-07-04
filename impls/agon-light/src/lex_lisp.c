@@ -215,18 +215,18 @@ static lexer_t lex_vector_end(lexer_t lexer) {
 static lexer_t lex_vector_start(lexer_t lexer) {
     return lex_seq_start(lexer, 1, TOKEN_TYPE_VEC_START, lex_vector_end);
 }
-static lexer_t lex_set_end(lexer_t lexer) {
-    return lex_seq_end(lexer, '}', TOKEN_TYPE_SET_END);
-}
-static lexer_t lex_set_start(lexer_t lexer) {
-    return lex_seq_start(lexer, 2, TOKEN_TYPE_SET_START, lex_set_end);
-}
-static lexer_t lex_lambda_end(lexer_t lexer) {
-    return lex_seq_end(lexer, ')', TOKEN_TYPE_LAMBDA_END);
-}
-static lexer_t lex_lambda_start(lexer_t lexer) {
-    return lex_seq_start(lexer, 2, TOKEN_TYPE_LAMBDA_START, lex_lambda_end);
-}
+// static lexer_t lex_set_end(lexer_t lexer) {
+//     return lex_seq_end(lexer, '}', TOKEN_TYPE_SET_END);
+// }
+// static lexer_t lex_set_start(lexer_t lexer) {
+//     return lex_seq_start(lexer, 2, TOKEN_TYPE_SET_START, lex_set_end);
+// }
+// static lexer_t lex_lambda_end(lexer_t lexer) {
+//     return lex_seq_end(lexer, ')', TOKEN_TYPE_LAMBDA_END);
+// }
+// static lexer_t lex_lambda_start(lexer_t lexer) {
+//     return lex_seq_start(lexer, 2, TOKEN_TYPE_LAMBDA_START, lex_lambda_end);
+// }
 
 static lexer_t lex_symbol_or_keyword(lexer_t lexer, token_type_t token_type)
 {
@@ -242,23 +242,23 @@ static lexer_t lex_symbol(lexer_t lexer) {
     return lex_symbol_or_keyword(lexer, TOKEN_TYPE_SYMBOL);
 }
 
-static lexer_t lex_start_metadata(lexer_t lexer)
-{
-    char ch = lex_peek(lexer);
-
-    switch(ch) {
-    case ':':
-        return lex_assoc_state(lex_read(lex_emit(lexer, TOKEN_TYPE_METADATA)), lex_keyword);
-    case '{':
-        return lex_assoc_state(lex_emit(lexer, TOKEN_TYPE_METADATA), lex_map_start);
-    default:
-        if (isalpha(ch))
-            return lex_assoc_state(lex_emit(lexer, TOKEN_TYPE_METADATA), lex_symbol);
-        break;
-    }
-
-    return lex_error(lexer, "Unexpected character in metadata");
-}
+// static lexer_t lex_start_metadata(lexer_t lexer)
+// {
+//     char ch = lex_peek(lexer);
+//
+//     switch(ch) {
+//     case ':':
+//         return lex_assoc_state(lex_read(lex_emit(lexer, TOKEN_TYPE_METADATA)), lex_keyword);
+//     case '{':
+//         return lex_assoc_state(lex_emit(lexer, TOKEN_TYPE_METADATA), lex_map_start);
+//     default:
+//         if (isalpha(ch))
+//             return lex_assoc_state(lex_emit(lexer, TOKEN_TYPE_METADATA), lex_symbol);
+//         break;
+//     }
+//
+//     return lex_error(lexer, "Unexpected character in metadata");
+// }
 
 static lexer_t lex_char_octal(lexer_t lexer)
 {
@@ -295,48 +295,48 @@ static lexer_t lex_symbol_slurp(lexer_t lexer)
     return lex_return(lex_emit(lexer, TOKEN_TYPE_SYMBOL));
 }
 
-static lexer_t lex_quote_end_list(lexer_t lexer)
-{
-    return lex_emit_token(lex_list_end(lexer), TOKEN_TYPE_LIST_END, ")");
-}
-
-static lexer_t lex_quote_end_vec(lexer_t lexer)
-{
-    return lex_emit_token(lex_vector_end(lexer), TOKEN_TYPE_LIST_END, ")");
-}
-
-static lexer_t lex_quote_start(lexer_t lexer)
-{
-    if (lex_is_whitespace(lexer))
-        return lex_skip(lexer);
-
-    char ch = lex_peek(lexer);
-    if (ch == '(' || ch == '[') {
-        lexer = lex_emit_token(lexer, TOKEN_TYPE_LIST_START, "(");
-        lexer = lex_emit_token(lexer, TOKEN_TYPE_SYMBOL, "quote");
-        if (ch == '(')
-            return lex_seq_start(lexer, 1, TOKEN_TYPE_LIST_START, lex_quote_end_list);
-        if (ch == '[')
-            return lex_seq_start(lexer, 1, TOKEN_TYPE_VEC_START, lex_quote_end_vec);
-    }
-    if (lex_is_eos(lexer))
-        return lex_error(lexer, "Unexpected end of input");
-    return lex_error(lexer, "Unexpected character");
-}
-
-static lexer_t lex_deref_end(lexer_t lexer)
-{
-    lexer = lex_emit_token(lexer, TOKEN_TYPE_LIST_END, ")");
-    return lex_return(lexer);
-}
-
-static lexer_t lex_deref_start(lexer_t lexer)
-{
-    lexer = lex_emit_token(lexer, TOKEN_TYPE_LIST_START, "(");
-    lexer = lex_emit_token(lexer, TOKEN_TYPE_SYMBOL, "deref");
-    lexer = lex_push_return(lexer, lex_deref_end);
-    return lex_assoc_state(lexer, lex_symbol);
-}
+// static lexer_t lex_quote_end_list(lexer_t lexer)
+// {
+//     return lex_emit_token(lex_list_end(lexer), TOKEN_TYPE_LIST_END, ")");
+// }
+//
+// static lexer_t lex_quote_end_vec(lexer_t lexer)
+// {
+//     return lex_emit_token(lex_vector_end(lexer), TOKEN_TYPE_LIST_END, ")");
+// }
+//
+// static lexer_t lex_quote_start(lexer_t lexer)
+// {
+//     if (lex_is_whitespace(lexer))
+//         return lex_skip(lexer);
+//
+//     char ch = lex_peek(lexer);
+//     if (ch == '(' || ch == '[') {
+//         lexer = lex_emit_token(lexer, TOKEN_TYPE_LIST_START, "(");
+//         lexer = lex_emit_token(lexer, TOKEN_TYPE_SYMBOL, "quote");
+//         if (ch == '(')
+//             return lex_seq_start(lexer, 1, TOKEN_TYPE_LIST_START, lex_quote_end_list);
+//         if (ch == '[')
+//             return lex_seq_start(lexer, 1, TOKEN_TYPE_VEC_START, lex_quote_end_vec);
+//     }
+//     if (lex_is_eos(lexer))
+//         return lex_error(lexer, "Unexpected end of input");
+//     return lex_error(lexer, "Unexpected character");
+// }
+//
+// static lexer_t lex_deref_end(lexer_t lexer)
+// {
+//     lexer = lex_emit_token(lexer, TOKEN_TYPE_LIST_END, ")");
+//     return lex_return(lexer);
+// }
+//
+// static lexer_t lex_deref_start(lexer_t lexer)
+// {
+//     lexer = lex_emit_token(lexer, TOKEN_TYPE_LIST_START, "(");
+//     lexer = lex_emit_token(lexer, TOKEN_TYPE_SYMBOL, "deref");
+//     lexer = lex_push_return(lexer, lex_deref_end);
+//     return lex_assoc_state(lexer, lex_symbol);
+// }
 
 static lexer_t lex_sequence_inside(lexer_t lexer)
 {
@@ -371,31 +371,44 @@ static lexer_t lex_sequence_inside(lexer_t lexer)
         case '&': return lex_state_call(lex_read(lexer), lex_symbol_slurp);
         case ':': return lex_state_call(lex_read(lexer), lex_keyword);
         case '\\': return lex_state_call(lex_skip(lexer), lex_char_start);
-        case '`':
-        case '\'': return lex_state_call(lex_skip(lexer), lex_quote_start);
-        case '@': return lex_state_call(lex_skip(lexer), lex_deref_start);
+        case '\'': return lex_emit(lex_skip(lexer), TOKEN_TYPE_QUOTE);
+        case '`': return lex_emit(lex_skip(lexer), TOKEN_TYPE_QUASIQUOTE);
+        case '@': return lex_emit(lex_skip(lexer), TOKEN_TYPE_DEREF);
+        case '^': return lex_emit(lex_skip(lexer), TOKEN_TYPE_WITHMETA);
+        case '~':
+            if (lex_peekn(lexer, 2)[1] == '@') {
+                return lex_emit(lex_skipn(lexer, 2), TOKEN_TYPE_UNQUOTESPLICE);
+            }
+            else {
+                return lex_emit(lex_skip(lexer), TOKEN_TYPE_UNQUOTE);
+            }
+        // case '`':
+        // case '\'': return lex_state_call(lex_skip(lexer), lex_quote_start);
+        // case '@': return lex_state_call(lex_skip(lexer), lex_deref_start);
         case ')':
         case '}':
         case ']': return lex_return(lexer);
-        case '#': {
-            const char *peeks = lex_peekn(lexer, 2);
-            if (peeks[1] == '{')
-                return lex_state_call(lexer, lex_set_start);
-            if (peeks[1] == '(')
-                return lex_state_call(lexer, lex_lambda_start);
-            if (peeks[1] == '\'') {
-                lexer = lex_readn(lexer, 2);
-                lexer = lex_emit(lexer, TOKEN_TYPE_SYMBOL_REF);
-                return lex_state_call(lexer, lex_symbol);
-            }
-            break;
-        }
-        case '^': {
-            const char *peeks = lex_peekn(lexer, 2);
-            if (peeks[1] == ':' || peeks[1] == '{' || isalpha(peeks[1]))
-                return lex_state_call(lex_skip(lexer), lex_start_metadata);
-            break;
-        }
+
+        // case '#': {
+        //     const char *peeks = lex_peekn(lexer, 2);
+        //     if (peeks[1] == '{')
+        //         return lex_state_call(lexer, lex_set_start);
+        //     if (peeks[1] == '(')
+        //         return lex_state_call(lexer, lex_lambda_start);
+        //     if (peeks[1] == '\'') {
+        //         lexer = lex_readn(lexer, 2);
+        //         lexer = lex_emit(lexer, TOKEN_TYPE_SYMBOL_REF);
+        //         return lex_state_call(lexer, lex_symbol);
+        //     }
+        //     break;
+        // }
+
+        // case '^': {
+        //     const char *peeks = lex_peekn(lexer, 2);
+        //     if (peeks[1] == ':' || peeks[1] == '{' || isalpha(peeks[1]))
+        //         return lex_state_call(lex_skip(lexer), lex_start_metadata);
+        //     break;
+        // }
     }
 
     if (lex_is_symbol(lexer))
