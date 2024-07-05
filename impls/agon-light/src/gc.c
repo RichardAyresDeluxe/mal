@@ -38,10 +38,10 @@ void gc_mark(MalVal *val, void *data)
 
   switch (val->type) {
     case TYPE_VECTOR: 
-      mallist_foreach(val->data.vec, gc_mark, NULL);
+      list_foreach(val->data.vec, gc_mark, NULL);
       break;
     case TYPE_LIST: 
-      mallist_foreach(val->data.list, gc_mark, NULL);
+      list_foreach(val->data.list, gc_mark, NULL);
       break;
   }
 }

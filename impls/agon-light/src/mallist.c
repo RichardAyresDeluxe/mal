@@ -10,7 +10,7 @@ MalList *cons(MalVal *val, MalList *list)
   return c;
 }
 
-static void mallist_free(MalList *list)
+static void list_free(MalList *list)
 {
   MalList *rover = list->next;
   heap_free(list);
@@ -26,14 +26,24 @@ static void mallist_free(MalList *list)
   }
 }
 
-void mallist_release(MalList *list)
+void list_release(MalList *list)
 {
   if (list && list->ref_count-- == 1)
-    mallist_free(list);
+    list_free(list);
 }
 
-void mallist_foreach(MalList *list, MalValProc p, void *data)
+void list_foreach(MalList *list, MalValProc p, void *data)
 {
   for (MalList *rover = list; rover; rover = rover->next)
     p(rover->value, data);
+}
+
+unsigned list_count(MalList *list)
+{
+  unsigned count = 0;
+  while(list) {
+    count++;
+    list = list->next;
+  }
+  return count;
 }

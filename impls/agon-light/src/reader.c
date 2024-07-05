@@ -164,7 +164,7 @@ MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
   list = cons(read_form(token, next), list);
   list = cons(malval_symbol(name), list);
   rv = malval_list(list);
-  mallist_release(list);
+  list_release(list);
   return rv;
 }
 
@@ -182,7 +182,7 @@ MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next)
   list = cons(read_form(token, next), list);
   list = cons(malval_symbol("with-meta"), list);
   rv = malval_list(list);
-  mallist_release(list);
+  list_release(list);
   return rv;
 }
 

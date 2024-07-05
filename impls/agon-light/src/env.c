@@ -19,13 +19,14 @@ ENV *env_create(ENV *parent)
   return env;
 }
 
-void env_destroy(ENV *env)
+void env_destroy(ENV *env, bool delete_parent)
 {
   if (!env)
     return;
 
   map_destroy(env->map);
-  env_destroy(env->parent);
+  if (delete_parent)
+    env_destroy(env->parent, TRUE);
 }
 
 void env_set(ENV *env, const char *key, MalVal *val)

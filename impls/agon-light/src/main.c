@@ -83,7 +83,7 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_list(evaluated);
-    mallist_release(evaluated);
+    list_release(evaluated);
     return value;
   }
 
@@ -95,7 +95,7 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_vector(evaluated);
-    mallist_release(evaluated);
+    list_release(evaluated);
     return value;
   }
 
@@ -111,7 +111,7 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_map(evaluated);
-    mallist_release(evaluated);
+    list_release(evaluated);
     return value;
 
   }
@@ -126,18 +126,93 @@ static MalVal *apply(MalVal *f, MalList *args, ENV *env)
   return f->data.fn(args, env);
 }
 
+static MalVal *EVAL_def(MalList *list, ENV *env)
+{
+  if (list_count(list) != 3) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "def! requires two arguments");
+    return NIL;
+  }
+
+  MalVal *value = EVAL(list->next->next->value, env);
+
+  env_set(env, list->next->value->data.string, value);
+
+  return value;
+}
+
+static MalVal *EVAL_let(MalList *list, ENV *env)
+{
+  if (list_count(list) != 3) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
+    return NIL;
+  }
+
+  ENV *let = env_create(env);
+
+  if (list->next->value->type != TYPE_LIST && list->next->value->type != TYPE_VECTOR) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
+    env_destroy(let, FALSE);
+    return NIL;
+  }
+
+  MalList *bindings = list->next->value->data.list;
+  if ((list_count(bindings) % 2) != 0) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
+    env_destroy(let, FALSE);
+    return NIL;
+  }
+
+  for (MalList *rover = bindings;
+       rover && rover->next;
+       rover = rover->next->next)
+  {
+    if (rover->value->type != TYPE_SYMBOL) {
+      err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
+      env_destroy(let, FALSE);
+      return NIL;
+    }
+    env_set(let, rover->value->data.string, EVAL(rover->next->value, let));
+  }
+
+  MalVal *result = EVAL(list->next->next->value, let);
+  env_destroy(let, FALSE);
+
+  return result;
+}
+
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
   if (ast->type != TYPE_LIST)
     return eval_ast(ast, env);
   if (ast->data.list == NULL)
-    return ast;
+    return ast; /* empty list */
 
-  MalVal *f = eval_ast(ast, env);
-  assert(f->type == TYPE_LIST);
-  assert(f->data.list != NULL);
+  MalVal *result = NULL;
+  MalList *list = ast->data.list;
 
-  return apply(f->data.list->value, f->data.list->next, env);
+  if (list->value->type == TYPE_SYMBOL
+   && strcmp(list->value->data.string, "def!") == 0
+  ) {
+    result = EVAL_def(list, env);
+  }
+  else if (list->value->type == TYPE_SYMBOL
+        && strcmp(list->value->data.string, "let*") == 0
+  ) {
+    result = EVAL_let(list, env);
+  }
+  else {
+    MalVal *f = eval_ast(ast, env);
+    assert(f->type == TYPE_LIST);
+    assert(f->data.list != NULL);
+
+    result = apply(f->data.list->value, f->data.list->next, env);
+  }
+
+  gc_mark_env(env, NULL);
+  gc_mark(result, NULL);
+  gc(FALSE);
+
+  return result ? result : NIL;
 }
 
 MalVal *READ(void)
@@ -159,8 +234,10 @@ static void cleanup(void)
 {
   unsigned count, size;
 
-  env_destroy(repl_env);
+  env_destroy(repl_env, TRUE);
   repl_env = NULL;
+  gc(TRUE);
+  gc(TRUE);
   gc(TRUE);
 
   value_info(&count, &size);

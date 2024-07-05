@@ -1,5 +1,5 @@
-#ifndef _MALLIST_H
-#define _MALLIST_H
+#ifndef _list_H
+#define _list_H
 
 #include "malval.h"
 
@@ -9,14 +9,14 @@ typedef struct MalList {
   struct MalVal *value;
 } MalList;
 
-MalList *cons(MalVal*, MalList*);
-static inline MalList *mallist_acquire(MalList *l) {
+extern MalList *cons(MalVal*, MalList*);
+static inline MalList *list_acquire(MalList *l) {
   if (l)
     l->ref_count++;
   return l;
 }
-void mallist_release(MalList*);
+extern void list_release(MalList*);
+extern void list_foreach(MalList *, MalValProc, void*);
+extern unsigned list_count(MalList *list);
 
-void mallist_foreach(MalList *, MalValProc, void*);
-
-#endif /* _MALLIST_H */
+#endif /* _list_H */

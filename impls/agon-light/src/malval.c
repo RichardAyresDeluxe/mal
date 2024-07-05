@@ -27,21 +27,21 @@ MalVal *malval_symbol(const char *s)
 MalVal *malval_list(MalList *list)
 {
   MalVal *val = malval_create(TYPE_LIST);
-  val->data.list = mallist_acquire(list);
+  val->data.list = list_acquire(list);
   return val;
 }
 
 MalVal *malval_vector(MalList *list)
 {
   MalVal *val = malval_create(TYPE_VECTOR);
-  val->data.list = mallist_acquire(list);
+  val->data.list = list_acquire(list);
   return val;
 }
 
 MalVal *malval_map(MalList *list)
 {
   MalVal *val = malval_create(TYPE_MAP);
-  val->data.list = mallist_acquire(list);
+  val->data.list = list_acquire(list);
   return val;
 }
 
@@ -74,7 +74,7 @@ void malval_free(MalVal *val)
       heap_free(val->data.string);
       break;
     case TYPE_LIST:
-      mallist_release(val->data.list);
+      list_release(val->data.list);
       break;
   }
 
