@@ -6,7 +6,7 @@ MalList *cons(MalVal *val, MalList *list)
   MalList *c = heap_malloc(sizeof(MalList));
   c->next = list;
   c->ref_count = 1;
-  c->value = val;
+  c->value = val ? val : NIL;
   return c;
 }
 

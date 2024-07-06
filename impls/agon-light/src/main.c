@@ -11,8 +11,11 @@
 #include "env.h"
 #include "err.h"
 #include "listsort.h"
+#include "heap.h"
 
 ENV *repl_env = NULL;
+
+/** This can return NULL */
 MalVal *EVAL(MalVal *ast, ENV *env);
 
 static MalVal *plus(MalList *args, ENV *env)
@@ -63,6 +66,21 @@ static MalVal *divide(MalList *args, ENV *env)
   return malval_number(result);
 }
 
+
+static void warn_symbol_not_found(const char *name)
+{
+  unsigned l = strlen(name);
+  l += 7; //strlen("symbol ");
+  l += 10; //strlen(" not found");
+  char *s = heap_malloc(l + 1);
+  strcpy(s, "symbol ");
+  strcat(s, name);
+  strcat(s, " not found");
+  err_warning(ERR_SYMBOL_NOT_FOUND, s);
+  heap_free(s);
+}
+
+
 static MalVal *eval_ast(MalVal *ast, ENV *env)
 {
   if (ast->type == TYPE_SYMBOL)
@@ -71,8 +89,8 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
     if (value)
       return value;
 
-    err_warning(ERR_ARGUMENT_MISMATCH, "Unknown symbol", ast->data.string);
-    return NIL;
+    warn_symbol_not_found(ast->data.string);
+    return NULL;
   }
 
   if (ast->type == TYPE_LIST)
@@ -133,9 +151,15 @@ static MalVal *EVAL_def(MalList *list, ENV *env)
     return NIL;
   }
 
-  MalVal *value = EVAL(list->next->next->value, env);
+  const char *name = list->next->value->data.string;
 
-  env_set(env, list->next->value->data.string, value);
+  MalVal *value = EVAL(list->next->next->value, env);
+  if (!value) {
+    warn_symbol_not_found(name);
+    return NIL;
+  }
+
+  env_set(env, name, value);
 
   return value;
 }
@@ -175,9 +199,10 @@ static MalVal *EVAL_let(MalList *list, ENV *env)
   }
 
   MalVal *result = EVAL(list->next->next->value, let);
+
   env_destroy(let, FALSE);
 
-  return result;
+  return result ? result : NIL;
 }
 
 MalVal *EVAL(MalVal *ast, ENV *env)
@@ -202,8 +227,15 @@ MalVal *EVAL(MalVal *ast, ENV *env)
   }
   else {
     MalVal *f = eval_ast(ast, env);
+    if (!f)
+        return NULL;
+    if (VAL_IS_NIL(f))
+      return NIL;
     assert(f->type == TYPE_LIST);
     assert(f->data.list != NULL);
+
+    if (VAL_IS_NIL(f->data.list->value))
+      return NULL;
 
     result = apply(f->data.list->value, f->data.list->next, env);
   }
@@ -212,7 +244,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
   gc_mark(result, NULL);
   gc(FALSE);
 
-  return result ? result : NIL;
+  return result;
 }
 
 MalVal *READ(void)
@@ -222,7 +254,7 @@ MalVal *READ(void)
 
 const char *PRINT(const MalVal *val)
 {
-  return pr_str(val, TRUE);
+  return pr_str(val ? val : NIL, TRUE);
 }
 
 const char *rep(ENV *repl_env)

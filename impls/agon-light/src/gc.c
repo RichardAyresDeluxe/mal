@@ -31,7 +31,7 @@ static void sweep(void)
 
 void gc_mark(MalVal *val, void *data)
 {
-  if (val->mark)
+  if (!val || val->mark)
     return;
 
   val->mark = 1;
