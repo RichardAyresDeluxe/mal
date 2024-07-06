@@ -7,6 +7,7 @@
 #include "list.h"
 #include "heap.h"
 #include "listsort.h"
+#include "gc.h"
 
 extern char *strdup(const char *);
 
@@ -39,16 +40,25 @@ MalVal *read_form(lex_token_t *token, lex_token_t **next)
     err_fatal(ERR_LEXER_ERROR, "Out of tokens");
   }
 
+  MalVal *rv = NULL;
+
   switch(token->type) {
     case TOKEN_TYPE_LIST_START:
-      return read_list(token->next, next);
+      rv = read_list(token->next, next);
+      break;
     case TOKEN_TYPE_VEC_START:
-      return read_vector(token->next, next);
+      rv = read_vector(token->next, next);
+      break;
     case TOKEN_TYPE_MAP_START:
-      return read_map(token->next, next);
+      rv = read_map(token->next, next);
+      break;
+    default:
+      rv = read_atom(token, next);
+      break;
   }
 
-  return read_atom(token, next);
+  gc_mark(rv, NULL);
+  return rv;
 }
 
 MalVal *read_atom(lex_token_t *token, lex_token_t **next)
