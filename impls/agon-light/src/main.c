@@ -240,11 +240,13 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     result = apply(f->data.list->head, f->data.list->tail, env);
   }
 
+  gc_mark(ast, NULL);
+  gc_mark_list(list, NULL);
   gc_mark_env(env, NULL);
   gc_mark(result, NULL);
   gc(FALSE);
 
-  return result;
+  return result; // ? result : NIL;
 }
 
 MalVal *READ(void)

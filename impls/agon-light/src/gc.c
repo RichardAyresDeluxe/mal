@@ -42,6 +42,9 @@ void gc_mark(MalVal *val, void *data)
     case TYPE_LIST: 
       list_foreach(val->data.list, gc_mark, NULL);
       break;
+    case TYPE_MAP:
+      list_foreach(val->data.map, gc_mark, NULL);
+      break;
   }
 }
 
