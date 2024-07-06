@@ -1,9 +1,6 @@
 OBJDIR=build
 C_FILES=$(wildcard src/*.c)
-BUILTIN_C_FILES=$(wildcard src/builtins/*.c)
 OBJ_FILES=$(patsubst src/%.c,$(OBJDIR)/%.o,$(C_FILES))
-BUILTIN_OBJ_FILES+=$(patsubst src/builtins/%.c,$(OBJDIR)/builtins/%.o,$(BUILTIN_C_FILES))
-LIB_BUILTINS=$(OBJDIR)/libbuiltins.a
 LIBS=-lm
 CC=gcc
 LD=gcc
@@ -28,14 +25,8 @@ clean:
 	rm -f $(OBJDIR)/*.[oda] $(OBJDIR)/builtins/*.[oda]
 	rm -f step1_read_print
 
-tags:
-	@find . -name '*.h' -o -name '*.c' | ctags -
-
 $(OBJDIR)/%.o:src/%.c
 	${CC} ${CFLAGS} -c -o $@ $<  
-
-$(LIB_BUILTINS): $(BUILTIN_OBJ_FILES)
-	ar rcs $@ $^
 
 $(OBJDIR)/mal: ${OBJ_FILES} ${LIB_BUILTINS}
 	${LD} ${LDFLAGS} -Xlinker -Map=$(patsubst $(OBJDIR)/%,$(OBJDIR)/%.map,$@) \
