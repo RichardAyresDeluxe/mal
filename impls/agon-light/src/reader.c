@@ -4,7 +4,7 @@
 #include "lex_lisp.h"
 #include "err.h"
 #include "reader.h"
-#include "mallist.h"
+#include "list.h"
 #include "heap.h"
 #include "listsort.h"
 
@@ -121,7 +121,7 @@ MalVal *read_atom(lex_token_t *token, lex_token_t **next)
 
 MalVal *read_list(lex_token_t *token, lex_token_t **next)
 {
-  MalList *list = NULL;
+  List *list = NULL;
   lex_token_t *rover = token;
 
   while (rover && !TOKEN_IS_END(rover)) {
@@ -154,7 +154,7 @@ MalVal *read_map(lex_token_t *token, lex_token_t **next)
 MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
 {
   MalVal *rv;
-  MalList *list = NULL;
+  List *list = NULL;
 
   if (!token) {
     err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");
@@ -171,7 +171,7 @@ MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
 MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next)
 {
   MalVal *rv;
-  MalList *list = NULL;
+  List *list = NULL;
 
   if (!token) {
     err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "malval.h"
-#include "mallist.h"
+#include "list.h"
 #include "gc.h"
 #include "reader.h"
 #include "printer.h"
@@ -18,50 +18,50 @@ ENV *repl_env = NULL;
 /** This can return NULL */
 MalVal *EVAL(MalVal *ast, ENV *env);
 
-static MalVal *plus(MalList *args, ENV *env)
+static MalVal *plus(List *args, ENV *env)
 {
   int result = 0;
 
-  for (MalList *rover = args; rover; rover = rover->next) {
-    assert(rover->value->type == TYPE_NUMBER);
-    result += rover->value->data.number;
+  for (List *rover = args; rover; rover = rover->tail) {
+    assert(rover->head->type == TYPE_NUMBER);
+    result += rover->head->data.number;
   }
   return malval_number(result);
 }
 
-static MalVal *minus(MalList *args, ENV *env)
+static MalVal *minus(List *args, ENV *env)
 {
   assert(args != NULL);
 
-  int result = args->value->data.number;
+  int result = args->head->data.number;
 
-  for (MalList *rover = args->next; rover; rover = rover->next) {
-    assert(rover->value->type == TYPE_NUMBER);
-    result -= rover->value->data.number;
+  for (List *rover = args->tail; rover; rover = rover->tail) {
+    assert(rover->head->type == TYPE_NUMBER);
+    result -= rover->head->data.number;
   }
   return malval_number(result);
 }
 
-static MalVal *multiply(MalList *args, ENV *env)
+static MalVal *multiply(List *args, ENV *env)
 {
   int result = 1;
 
-  for (MalList *rover = args; rover; rover = rover->next) {
-    assert(rover->value->type == TYPE_NUMBER);
-    result *= rover->value->data.number;
+  for (List *rover = args; rover; rover = rover->tail) {
+    assert(rover->head->type == TYPE_NUMBER);
+    result *= rover->head->data.number;
   }
   return malval_number(result);
 }
 
-static MalVal *divide(MalList *args, ENV *env)
+static MalVal *divide(List *args, ENV *env)
 {
-  assert(args != NULL && args->next != NULL);
+  assert(args != NULL && args->tail != NULL);
 
-  int result = args->value->data.number;
+  int result = args->head->data.number;
 
-  for (MalList *rover = args->next; rover; rover = rover->next) {
-    assert(rover->value->type == TYPE_NUMBER);
-    result /= rover->value->data.number;
+  for (List *rover = args->tail; rover; rover = rover->tail) {
+    assert(rover->head->type == TYPE_NUMBER);
+    result /= rover->head->data.number;
   }
   return malval_number(result);
 }
@@ -95,9 +95,9 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
 
   if (ast->type == TYPE_LIST)
   {
-    MalList *evaluated = NULL;
-    for (MalList *rover = ast->data.list; rover; rover = rover->next) {
-      evaluated = cons(EVAL(rover->value, env), evaluated);
+    List *evaluated = NULL;
+    for (List *rover = ast->data.list; rover; rover = rover->tail) {
+      evaluated = cons(EVAL(rover->head, env), evaluated);
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_list(evaluated);
@@ -107,9 +107,9 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
 
   if (ast->type == TYPE_VECTOR)
   {
-    MalList *evaluated = NULL;
-    for (MalList *rover = ast->data.list; rover; rover = rover->next) {
-      evaluated = cons(EVAL(rover->value, env), evaluated);
+    List *evaluated = NULL;
+    for (List *rover = ast->data.list; rover; rover = rover->tail) {
+      evaluated = cons(EVAL(rover->head, env), evaluated);
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_vector(evaluated);
@@ -119,13 +119,13 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
 
   if (ast->type == TYPE_MAP)
   {
-    MalList *evaluated = NULL;
+    List *evaluated = NULL;
     unsigned i = 0;
-    for (MalList *rover = ast->data.list; rover; rover = rover->next) {
+    for (List *rover = ast->data.list; rover; rover = rover->tail) {
       if ((i++ % 2) == 1)
-        evaluated = cons(EVAL(rover->value, env), evaluated);
+        evaluated = cons(EVAL(rover->head, env), evaluated);
       else
-        evaluated = cons(rover->value, evaluated);
+        evaluated = cons(rover->head, evaluated);
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_map(evaluated);
@@ -137,23 +137,23 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
   return ast;
 }
 
-static MalVal *apply(MalVal *f, MalList *args, ENV *env)
+static MalVal *apply(MalVal *f, List *args, ENV *env)
 {
   if (f->type != TYPE_FUNCTION)
     return NIL;
   return f->data.fn(args, env);
 }
 
-static MalVal *EVAL_def(MalList *list, ENV *env)
+static MalVal *EVAL_def(List *list, ENV *env)
 {
   if (list_count(list) != 3) {
     err_warning(ERR_ARGUMENT_MISMATCH, "def! requires two arguments");
     return NIL;
   }
 
-  const char *name = list->next->value->data.string;
+  const char *name = list->tail->head->data.string;
 
-  MalVal *value = EVAL(list->next->next->value, env);
+  MalVal *value = EVAL(list->tail->tail->head, env);
   if (!value) {
     warn_symbol_not_found(name);
     return NIL;
@@ -164,7 +164,7 @@ static MalVal *EVAL_def(MalList *list, ENV *env)
   return value;
 }
 
-static MalVal *EVAL_let(MalList *list, ENV *env)
+static MalVal *EVAL_let(List *list, ENV *env)
 {
   if (list_count(list) != 3) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
@@ -173,32 +173,32 @@ static MalVal *EVAL_let(MalList *list, ENV *env)
 
   ENV *let = env_create(env);
 
-  if (list->next->value->type != TYPE_LIST && list->next->value->type != TYPE_VECTOR) {
+  if (list->tail->head->type != TYPE_LIST && list->tail->head->type != TYPE_VECTOR) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
     env_destroy(let, FALSE);
     return NIL;
   }
 
-  MalList *bindings = list->next->value->data.list;
+  List *bindings = list->tail->head->data.list;
   if ((list_count(bindings) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
     env_destroy(let, FALSE);
     return NIL;
   }
 
-  for (MalList *rover = bindings;
-       rover && rover->next;
-       rover = rover->next->next)
+  for (List *rover = bindings;
+       rover && rover->tail;
+       rover = rover->tail->tail)
   {
-    if (rover->value->type != TYPE_SYMBOL) {
+    if (rover->head->type != TYPE_SYMBOL) {
       err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
       env_destroy(let, FALSE);
       return NIL;
     }
-    env_set(let, rover->value->data.string, EVAL(rover->next->value, let));
+    env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
   }
 
-  MalVal *result = EVAL(list->next->next->value, let);
+  MalVal *result = EVAL(list->tail->tail->head, let);
 
   env_destroy(let, FALSE);
 
@@ -213,15 +213,15 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     return ast; /* empty list */
 
   MalVal *result = NULL;
-  MalList *list = ast->data.list;
+  List *list = ast->data.list;
 
-  if (list->value->type == TYPE_SYMBOL
-   && strcmp(list->value->data.string, "def!") == 0
+  if (list->head->type == TYPE_SYMBOL
+   && strcmp(list->head->data.string, "def!") == 0
   ) {
     result = EVAL_def(list, env);
   }
-  else if (list->value->type == TYPE_SYMBOL
-        && strcmp(list->value->data.string, "let*") == 0
+  else if (list->head->type == TYPE_SYMBOL
+        && strcmp(list->head->data.string, "let*") == 0
   ) {
     result = EVAL_let(list, env);
   }
@@ -234,10 +234,10 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     assert(f->type == TYPE_LIST);
     assert(f->data.list != NULL);
 
-    if (VAL_IS_NIL(f->data.list->value))
+    if (VAL_IS_NIL(f->data.list->head))
       return NULL;
 
-    result = apply(f->data.list->value, f->data.list->next, env);
+    result = apply(f->data.list->head, f->data.list->tail, env);
   }
 
   gc_mark_env(env, NULL);

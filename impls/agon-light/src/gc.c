@@ -3,7 +3,6 @@
  */
 #include <stddef.h>
 #include "gc.h"
-#include "mallist.h"
 #include "env.h"
 
 extern ENV *repl_env;
@@ -72,4 +71,9 @@ void value_info(unsigned *count, unsigned *size)
     (*count)++;
     *size = *size + malval_size(rover, FALSE);
   }
+}
+
+void gc_mark_list(List *list, void *data)
+{
+  list_foreach(list, gc_mark, data);
 }

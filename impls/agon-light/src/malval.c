@@ -1,7 +1,7 @@
 #include <string.h>
 
 #include "malval.h"
-#include "mallist.h"
+#include "list.h"
 #include "heap.h"
 #include "gc.h"
 
@@ -24,21 +24,21 @@ MalVal *malval_symbol(const char *s)
   return val;
 }
 
-MalVal *malval_list(MalList *list)
+MalVal *malval_list(List *list)
 {
   MalVal *val = malval_create(TYPE_LIST);
   val->data.list = list_acquire(list);
   return val;
 }
 
-MalVal *malval_vector(MalList *list)
+MalVal *malval_vector(List *list)
 {
   MalVal *val = malval_create(TYPE_VECTOR);
   val->data.list = list_acquire(list);
   return val;
 }
 
-MalVal *malval_map(MalList *list)
+MalVal *malval_map(List *list)
 {
   MalVal *val = malval_create(TYPE_MAP);
   val->data.list = list_acquire(list);
@@ -90,8 +90,8 @@ unsigned malval_size(MalVal *val, bool deep)
 
   switch(val->type) {
     case TYPE_LIST:
-      for (MalList *rover = val->data.list; rover; rover = rover->next) {
-        sz += malval_size(rover->value, deep);
+      for (List *rover = val->data.list; rover; rover = rover->tail) {
+        sz += malval_size(rover->head, deep);
       }
       break;
   }

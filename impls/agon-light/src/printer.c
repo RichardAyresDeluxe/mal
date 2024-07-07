@@ -1,15 +1,15 @@
 #include <string.h>
 
 #include "heap.h"
-#include "mallist.h"
+#include "list.h"
 #include "itoa.h"
 #include "printer.h"
 
 extern char *strdup(const char *);
 
-static const char *pr_str_list(MalList *list);
-static const char *pr_str_vector(MalList *list);
-static const char *pr_str_map(MalList *list);
+static const char *pr_str_list(List *list);
+static const char *pr_str_vector(List *list);
+static const char *pr_str_map(List *list);
 static const char *pr_str_readable(const char *);
 
 const char *pr_str(const MalVal *val, bool readable)
@@ -59,15 +59,15 @@ const char *pr_str(const MalVal *val, bool readable)
   return strdup("Unknown");
 }
 
-static const char *pr_str_container(char pfx, char sfx, MalList *list)
+static const char *pr_str_container(char pfx, char sfx, List *list)
 {
   char *s = heap_malloc(3);
   s[0] = pfx;
   s[1] = '\0';
   unsigned len = 1;
 
-  for (MalList *rover = list; rover; rover = rover->next) {
-    const char *s2 = pr_str(rover->value, TRUE);
+  for (List *rover = list; rover; rover = rover->tail) {
+    const char *s2 = pr_str(rover->head, TRUE);
     unsigned newlen = len + strlen(s2) + 1;
     char *newstr = heap_malloc(newlen + 2);
 
@@ -97,17 +97,17 @@ static const char *pr_str_container(char pfx, char sfx, MalList *list)
 
 }
 
-const char *pr_str_list(MalList *list)
+const char *pr_str_list(List *list)
 {
   return pr_str_container('(', ')', list);
 }
 
-const char *pr_str_vector(MalList *list)
+const char *pr_str_vector(List *list)
 {
   return pr_str_container('[', ']', list);
 }
 
-const char *pr_str_map(MalList *map)
+const char *pr_str_map(List *map)
 {
   return pr_str_container('{', '}', map);
 }

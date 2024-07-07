@@ -22,11 +22,11 @@ typedef uint8_t bool;
 #define TYPE_STRING   0x31
 #define TYPE_SYMBOL   0x32
 
-struct MalList;
+struct List;
 struct ENV;
 struct MalVal;
 
-typedef struct MalVal *(FUNCTION)(struct MalList *args, struct ENV *env);
+typedef struct MalVal *(FUNCTION)(struct List *args, struct ENV *env);
 
 
 typedef struct MalVal {
@@ -37,9 +37,9 @@ typedef struct MalVal {
   union {
     int number;
     bool bool;
-    struct MalList *list;
-    struct MalList *vec;
-    struct MalList *map;
+    struct List *list;
+    struct List *vec;
+    struct List *map;
     const char *string;
     FUNCTION *fn;
     void *data;
@@ -52,9 +52,9 @@ MalVal *malval_create(uint8_t type);
 #define malval_nil() malval_create(TYPE_NIL)
 MalVal *malval_bool(bool);
 MalVal *malval_symbol(const char *);
-MalVal *malval_list(struct MalList*);
-MalVal *malval_vector(struct MalList*);
-MalVal *malval_map(struct MalList*);
+MalVal *malval_list(struct List*);
+MalVal *malval_vector(struct List*);
+MalVal *malval_map(struct List*);
 MalVal *malval_number(int);
 MalVal *malval_function(FUNCTION*);
 
