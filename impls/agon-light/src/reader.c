@@ -168,7 +168,7 @@ MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
 
   if (!token) {
     err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");
-    return malval_nil();
+    return NIL;
   }
 
   list = cons(read_form(token, next), list);

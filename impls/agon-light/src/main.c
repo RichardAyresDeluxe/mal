@@ -244,7 +244,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
   gc_mark_list(list, NULL);
   gc_mark_env(env, NULL);
   gc_mark(result, NULL);
-  gc(FALSE);
+  gc(FALSE, FALSE);
 
   return result; // ? result : NIL;
 }
@@ -270,9 +270,9 @@ static void cleanup(void)
 
   env_destroy(repl_env, TRUE);
   repl_env = NULL;
-  gc(TRUE);
-  gc(TRUE);
-  gc(TRUE);
+  gc(TRUE, TRUE);
+  gc(TRUE, TRUE);
+  gc(TRUE, TRUE);
 
   value_info(&count, &size);
 
@@ -315,7 +315,7 @@ int main(int argc, char **argv)
     }
     fputs(s, stdout);
     fputc('\n', stdout);
-    gc(FALSE);
+    gc(FALSE, TRUE);
   }
 }
 

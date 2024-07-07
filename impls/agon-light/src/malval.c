@@ -4,6 +4,7 @@
 #include "list.h"
 #include "heap.h"
 #include "gc.h"
+#include "map.h"
 
 /* not in C99 */
 extern char *strdup(const char*);
@@ -12,6 +13,7 @@ MalVal *malval_create(uint8_t type)
 {
   MalVal *val = heap_malloc(sizeof(MalVal));
   val->mark = 0;
+  val->temp = 1;
   val->type = type;
   gc_add(val);
   return val;
@@ -97,4 +99,20 @@ unsigned malval_size(MalVal *val, bool deep)
   }
 
   return sz;
+}
+
+void malval_reset_temp(MalVal *val, void *data)
+{
+  val->temp = 0;
+  switch (val->type) {
+    case TYPE_LIST:
+      list_foreach(val->data.list, malval_reset_temp, data);
+      break;
+    case TYPE_VECTOR:
+      list_foreach(val->data.vec, malval_reset_temp, data);
+      break;
+    case TYPE_MAP:
+      list_foreach(val->data.map, malval_reset_temp, data);
+      break;
+  }
 }

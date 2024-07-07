@@ -11,11 +11,13 @@ static MalVal *all_values = NULL;
 static unsigned values_count = 0;
 static unsigned values_max = 64;
 
-static void sweep(void)
+static void sweep(bool collect_temps)
 {
   MalVal **rover = &all_values;
   while (*rover) {
-    if (rover[0]->mark) {
+    if (rover[0]->mark
+     || (rover[0]->temp && !collect_temps)
+    ) {
       rover[0]->mark = 0;
       rover = &rover[0]->next;
       continue;
@@ -48,13 +50,13 @@ void gc_mark(MalVal *val, void *data)
   }
 }
 
-void gc(bool force)
+void gc(bool force, bool collect_temps)
 {
   if (!force && (values_count <= values_max))
     return;
 
   gc_mark_env(repl_env, NULL);
-  sweep();
+  sweep(collect_temps);
 
   values_max = 2 * values_count;
 }

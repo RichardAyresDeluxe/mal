@@ -16,6 +16,7 @@ struct lex_token {
     token_type_t type;
     uint8_t pos;
     unsigned line;
+    /* FIXME: */
     uint8_t _garbage[3];    // need this otherwise breaks, why?
 };
 

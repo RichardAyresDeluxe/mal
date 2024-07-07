@@ -32,7 +32,7 @@ typedef struct MalVal *(FUNCTION)(struct List *args, struct ENV *env);
 typedef struct MalVal {
   struct MalVal *next;      /* used for garbage collection */
   uint8_t type:6;
-  uint8_t unused:1;
+  uint8_t temp:1;           /* temporary value - don't garbage collect, yet */
   uint8_t mark:1;           /* marked - do not collect garbage */
   union {
     int number;
@@ -57,6 +57,8 @@ MalVal *malval_vector(struct List*);
 MalVal *malval_map(struct List*);
 MalVal *malval_number(int);
 MalVal *malval_function(FUNCTION*);
+
+void malval_reset_temp(MalVal *, void*);
 
 #define NIL malval_nil()
 #define T malval_bool(TRUE)

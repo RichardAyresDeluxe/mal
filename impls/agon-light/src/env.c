@@ -31,6 +31,7 @@ void env_destroy(ENV *env, bool delete_parent)
 
 void env_set(ENV *env, const char *key, MalVal *val)
 {
+  malval_reset_temp(val, NULL);
   map_add(env->map, key, val);
 }
 
