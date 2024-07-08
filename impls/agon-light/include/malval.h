@@ -25,9 +25,7 @@ typedef uint8_t bool;
 struct List;
 struct ENV;
 struct MalVal;
-
-typedef struct MalVal *(FUNCTION)(struct List *args, struct ENV *env);
-
+struct Function;
 
 typedef struct MalVal {
   struct MalVal *next;      /* used for garbage collection */
@@ -40,8 +38,8 @@ typedef struct MalVal {
     struct List *list;
     struct List *vec;
     struct List *map;
+    struct Function *fn;
     const char *string;
-    FUNCTION *fn;
     void *data;
   } data;
 } MalVal;
@@ -55,8 +53,8 @@ MalVal *malval_symbol(const char *);
 MalVal *malval_list(struct List*);
 MalVal *malval_vector(struct List*);
 MalVal *malval_map(struct List*);
+MalVal *malval_function(struct Function*);
 MalVal *malval_number(int);
-MalVal *malval_function(FUNCTION*);
 
 void malval_reset_temp(MalVal *, void*);
 

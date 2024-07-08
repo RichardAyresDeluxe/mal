@@ -12,6 +12,7 @@
 #include "err.h"
 #include "listsort.h"
 #include "heap.h"
+// #include "function.h"
 
 ENV *repl_env = NULL;
 
@@ -146,14 +147,14 @@ static MalVal *apply(MalVal *f, List *args, ENV *env)
 
 static MalVal *EVAL_def(List *list, ENV *env)
 {
-  if (list_count(list) != 3) {
+  if (list_count(list) != 2) {
     err_warning(ERR_ARGUMENT_MISMATCH, "def! requires two arguments");
     return NIL;
   }
 
-  const char *name = list->tail->head->data.string;
+  const char *name = list->head->data.string;
 
-  MalVal *value = EVAL(list->tail->tail->head, env);
+  MalVal *value = EVAL(list->tail->head, env);
   if (!value) {
     warn_symbol_not_found(name);
     return NIL;
@@ -166,20 +167,20 @@ static MalVal *EVAL_def(List *list, ENV *env)
 
 static MalVal *EVAL_let(List *list, ENV *env)
 {
-  if (list_count(list) != 3) {
+  if (list_count(list) != 2) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
     return NIL;
   }
 
   ENV *let = env_create(env, NULL, NULL);
 
-  if (list->tail->head->type != TYPE_LIST && list->tail->head->type != TYPE_VECTOR) {
+  if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
     env_destroy(let, FALSE);
     return NIL;
   }
 
-  List *bindings = list->tail->head->data.list;
+  List *bindings = list->head->data.list;
   if ((list_count(bindings) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
     env_destroy(let, FALSE);
@@ -198,11 +199,16 @@ static MalVal *EVAL_let(List *list, ENV *env)
     env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
   }
 
-  MalVal *result = EVAL(list->tail->tail->head, let);
+  MalVal *result = EVAL(list->tail->head, let);
 
   env_destroy(let, FALSE);
 
   return result ? result : NIL;
+}
+
+static MalVal *EVAL_fn_star(List *list, ENV *env)
+{
+  return NIL;
 }
 
 MalVal *EVAL(MalVal *ast, ENV *env)
@@ -215,40 +221,48 @@ MalVal *EVAL(MalVal *ast, ENV *env)
   MalVal *result = NULL;
   List *list = ast->data.list;
 
-  if (list->head->type == TYPE_SYMBOL
-   && strcmp(list->head->data.string, "def!") == 0
+  MalVal *head = list->head;
+  List *tail = list->tail;
+
+  if (head->type == TYPE_SYMBOL
+   && strcmp(head->data.string, "def!") == 0
   ) {
-    result = EVAL_def(list, env);
+    result = EVAL_def(tail, env);
   }
-  else if (list->head->type == TYPE_SYMBOL
-        && strcmp(list->head->data.string, "let*") == 0
+  else if (head->type == TYPE_SYMBOL
+        && strcmp(head->data.string, "let*") == 0
   ) {
-    result = EVAL_let(list, env);
+    result = EVAL_let(tail, env);
   }
-  else if (list->head->type == TYPE_SYMBOL
-        && strcmp(list->head->data.string, "do") == 0
+  else if (head->type == TYPE_SYMBOL
+        && strcmp(head->data.string, "do") == 0
   ) {
     MalVal *val = NULL;
-    for (List *rover = list->tail; rover; rover = rover->tail) {
+    for (List *rover = tail; rover; rover = rover->tail) {
       malval_reset_temp(val, NULL);
       val = eval_ast(rover->head, env);
     }
     return val ? val : NIL;
   }
-  else if (list->head->type == TYPE_SYMBOL
-        && strcmp(list->head->data.string, "if") == 0
+  else if (head->type == TYPE_SYMBOL
+        && strcmp(head->data.string, "fn*") == 0
   ) {
-    if (!list->tail || !list->tail->tail) {
+    return EVAL_fn_star(tail, env);
+  }
+  else if (head->type == TYPE_SYMBOL
+        && strcmp(head->data.string, "if") == 0
+  ) {
+    if (!tail || !tail->tail) {
       err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
       return NIL;
     }
-    MalVal *val = eval_ast(list->tail->head, env);
+    MalVal *val = eval_ast(tail->head, env);
     if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
-      return list->tail->tail->tail ? 
-        eval_ast(list->tail->tail->tail->head, env) : NIL;
+      return tail->tail->tail ? 
+        eval_ast(tail->tail->tail->head, env) : NIL;
     }
     else {
-      return eval_ast(list->tail->tail->head, env);
+      return eval_ast(tail->tail->head, env);
     }
   }
   else {

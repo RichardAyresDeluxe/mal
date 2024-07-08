@@ -4,7 +4,7 @@
 #include "list.h"
 #include "heap.h"
 #include "gc.h"
-#include "map.h"
+#include "function.h"
 
 /* not in C99 */
 extern char *strdup(const char*);
@@ -54,7 +54,7 @@ MalVal *malval_number(int number)
   return val;
 }
 
-MalVal *malval_function(FUNCTION *fn)
+MalVal *malval_function(Function *fn)
 {
   MalVal *val = malval_create(TYPE_FUNCTION);
   val->data.fn = fn;
