@@ -5,7 +5,7 @@
 #include "list.h"
 
 /** Take out the trash */
-extern void gc(bool force, bool include_temps);
+extern void gc(bool force, bool collect_temps);
 extern void gc_add(MalVal *);
 extern void gc_mark(MalVal *val, void *data);
 extern void gc_mark_env(struct ENV*, void*);

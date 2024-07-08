@@ -171,7 +171,7 @@ static MalVal *EVAL_let(List *list, ENV *env)
     return NIL;
   }
 
-  ENV *let = env_create(env);
+  ENV *let = env_create(env, NULL, NULL);
 
   if (list->tail->head->type != TYPE_LIST && list->tail->head->type != TYPE_VECTOR) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
@@ -224,6 +224,32 @@ MalVal *EVAL(MalVal *ast, ENV *env)
         && strcmp(list->head->data.string, "let*") == 0
   ) {
     result = EVAL_let(list, env);
+  }
+  else if (list->head->type == TYPE_SYMBOL
+        && strcmp(list->head->data.string, "do") == 0
+  ) {
+    MalVal *val = NULL;
+    for (List *rover = list->tail; rover; rover = rover->tail) {
+      malval_reset_temp(val, NULL);
+      val = eval_ast(rover->head, env);
+    }
+    return val ? val : NIL;
+  }
+  else if (list->head->type == TYPE_SYMBOL
+        && strcmp(list->head->data.string, "if") == 0
+  ) {
+    if (!list->tail || !list->tail->tail) {
+      err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
+      return NIL;
+    }
+    MalVal *val = eval_ast(list->tail->head, env);
+    if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
+      return list->tail->tail->tail ? 
+        eval_ast(list->tail->tail->tail->head, env) : NIL;
+    }
+    else {
+      return eval_ast(list->tail->tail->head, env);
+    }
   }
   else {
     MalVal *f = eval_ast(ast, env);
@@ -291,7 +317,7 @@ static void build_env(void)
     {"/", divide},
   };
 
-  repl_env = env_create(NULL);
+  repl_env = env_create(NULL, NULL, NULL);
 
   for (unsigned i=0; i < sizeof(fns)/sizeof(fns[0]); i++) {
     env_set(repl_env, fns[i].name, malval_function(fns[i].fn));

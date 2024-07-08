@@ -53,7 +53,7 @@ const char *pr_str(const MalVal *val, bool readable)
       return strdup(val->data.number ? "true" : "false");
 
     case TYPE_FUNCTION:
-      return strdup("A Function");
+      return strdup("#<function>");
   }
 
   return strdup("Unknown");

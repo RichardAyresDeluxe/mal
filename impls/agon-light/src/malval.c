@@ -103,6 +103,9 @@ unsigned malval_size(MalVal *val, bool deep)
 
 void malval_reset_temp(MalVal *val, void *data)
 {
+  if (!val)
+    return;
+
   val->temp = 0;
   switch (val->type) {
     case TYPE_LIST:

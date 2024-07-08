@@ -11,11 +11,21 @@ struct ENV {
   ENV *parent;
 };
 
-ENV *env_create(ENV *parent)
+ENV *env_create(ENV *parent, List *binds, List *exprs)
 {
   ENV *env = heap_malloc(sizeof(ENV));
   env->map = map_create();
   env->parent = parent;
+  
+  List *bind, *expr;
+  for (bind = binds, expr = exprs; bind && expr; bind = bind->tail, expr = expr->tail) {
+    if (bind->head->type != TYPE_SYMBOL) {
+      err_warning(ERR_ARGUMENT_MISMATCH, "Cannot not bind non-symbol");
+      continue;
+    }
+    env_set(env, bind->head->data.string, expr->head);
+  }
+
   return env;
 }
 
