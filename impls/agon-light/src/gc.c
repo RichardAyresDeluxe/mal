@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include "gc.h"
 #include "env.h"
+#include "function.h"
 
 extern ENV *repl_env;
 
@@ -46,6 +47,9 @@ void gc_mark(MalVal *val, void *data)
       break;
     case TYPE_MAP:
       list_foreach(val->data.map, gc_mark, NULL);
+      break;
+    case TYPE_FUNCTION:
+      function_gc_mark(val->data.fn, NULL);
       break;
   }
 }

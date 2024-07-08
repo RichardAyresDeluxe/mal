@@ -78,6 +78,9 @@ void malval_free(MalVal *val)
     case TYPE_LIST:
       list_release(val->data.list);
       break;
+    case TYPE_FUNCTION:
+      function_destroy(val->data.fn);
+      break;
   }
 
   heap_free(val);

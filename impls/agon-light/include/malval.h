@@ -61,8 +61,9 @@ void malval_reset_temp(MalVal *, void*);
 #define NIL malval_nil()
 #define T malval_bool(TRUE)
 #define F malval_bool(FALSE)
-#define VAL_IS_NIL(val) ((val)->type == TYPE_NIL)
-#define VAL_IS_FALSE(val) ((val)->type == TYPE_BOOL && (val)->data.bool == FALSE)
+#define VAL_TYPE(val) ((val)->type)
+#define VAL_IS_NIL(val) (VAL_TYPE(val) == TYPE_NIL)
+#define VAL_IS_FALSE(val) (VAL_TYPE(val) == TYPE_BOOL && (val)->data.bool == FALSE)
 
 void malval_free(MalVal*);
 unsigned malval_size(MalVal*, bool);

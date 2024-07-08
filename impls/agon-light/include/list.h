@@ -19,4 +19,6 @@ extern void list_release(List*);
 extern void list_foreach(List *, MalValProc, void*);
 extern unsigned list_count(List *list);
 
+extern MalVal *list_last(List*);
+
 #endif /* _list_H */

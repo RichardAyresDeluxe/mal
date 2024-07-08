@@ -47,3 +47,13 @@ unsigned list_count(List *list)
   }
   return count;
 }
+
+MalVal *list_last(List *list)
+{
+  List *rover = list, *last = NULL;
+  while (rover) {
+    last = rover;
+    rover = rover->tail;
+  }
+  return last ? last->head : NULL;
+}

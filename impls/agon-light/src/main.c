@@ -12,7 +12,7 @@
 #include "err.h"
 #include "listsort.h"
 #include "heap.h"
-// #include "function.h"
+#include "function.h"
 
 ENV *repl_env = NULL;
 
@@ -82,7 +82,7 @@ static void warn_symbol_not_found(const char *name)
 }
 
 
-static MalVal *eval_ast(MalVal *ast, ENV *env)
+MalVal *eval_ast(MalVal *ast, ENV *env)
 {
   if (ast->type == TYPE_SYMBOL)
   {
@@ -136,13 +136,6 @@ static MalVal *eval_ast(MalVal *ast, ENV *env)
   }
 
   return ast;
-}
-
-static MalVal *apply(MalVal *f, List *args, ENV *env)
-{
-  if (f->type != TYPE_FUNCTION)
-    return NIL;
-  return f->data.fn(args, env);
 }
 
 static MalVal *EVAL_def(List *list, ENV *env)
@@ -208,7 +201,7 @@ static MalVal *EVAL_let(List *list, ENV *env)
 
 static MalVal *EVAL_fn_star(List *list, ENV *env)
 {
-  return NIL;
+  return function_create(list, env);
 }
 
 MalVal *EVAL(MalVal *ast, ENV *env)
@@ -277,7 +270,12 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     if (VAL_IS_NIL(f->data.list->head))
       return NULL;
 
-    result = apply(f->data.list->head, f->data.list->tail, env);
+    if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION) {
+      err_warning(ERR_ARGUMENT_MISMATCH, "not a function");
+      return NIL;
+    }
+
+    result = apply(f->data.list->head->data.fn, f->data.list->tail);
   }
 
   gc_mark(ast, NULL);
@@ -323,7 +321,7 @@ static void build_env(void)
 {
   struct {
     const char *name;
-    FUNCTION *fn;
+    builtin_fn *fn;
   } fns[] = {
     {"+", plus},
     {"-", minus},
@@ -334,7 +332,7 @@ static void build_env(void)
   repl_env = env_create(NULL, NULL, NULL);
 
   for (unsigned i=0; i < sizeof(fns)/sizeof(fns[0]); i++) {
-    env_set(repl_env, fns[i].name, malval_function(fns[i].fn));
+    env_set(repl_env, fns[i].name, function_create_builtin(fns[i].fn));
   }
 
   env_set(repl_env, "nil", NIL);
