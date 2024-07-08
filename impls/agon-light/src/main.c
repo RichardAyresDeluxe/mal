@@ -67,6 +67,38 @@ static MalVal *divide(List *args, ENV *env)
   return malval_number(result);
 }
 
+static MalVal *builtin_apply(List *args, ENV *env)
+{
+  MalVal *f = args->head;
+
+  if (VAL_TYPE(f) != TYPE_FUNCTION) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "first argument to apply must be a function");
+    return NIL;
+  }
+
+  args = args->tail;
+
+  linked_list_reverse((void*)&args);
+
+  if (!args || VAL_TYPE(args->head) != TYPE_LIST) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "last argument must be a list");
+    return NIL;
+  }
+  
+  List *all = args->head->data.list;
+
+  for (List *rover = args->tail; rover; rover = rover->tail)
+    all = cons(args->head, all);
+
+  MalVal *rv = apply(f->data.fn, all);
+  list_release(all);
+  return rv;
+}
+
+static MalVal *builtin_list(List *args, ENV *env)
+{
+  return malval_list(list_acquire(args));
+}
 
 static void warn_symbol_not_found(const char *name)
 {
@@ -327,6 +359,8 @@ static void build_env(void)
     {"-", minus},
     {"*", multiply},
     {"/", divide},
+    {"apply", builtin_apply},
+    {"list", builtin_list},
   };
 
   repl_env = env_create(NULL, NULL, NULL);

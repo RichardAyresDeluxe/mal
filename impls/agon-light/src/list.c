@@ -6,7 +6,7 @@ List *cons(MalVal *val, List *list)
   List *c = heap_malloc(sizeof(List));
   c->ref_count = 1;
   c->head = val ? val : NIL;
-  c->tail = list;
+  c->tail = list_acquire(list);
   return c;
 }
 

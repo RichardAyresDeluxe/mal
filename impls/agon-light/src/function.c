@@ -166,7 +166,7 @@ MalVal *apply(Function *func, List *args)
       env_destroy(env, FALSE);
       break;
     }
-    else if (b->arity > argc && b->is_variadic) {
+    else if (b->arity >= argc && b->is_variadic) {
       err_fatal(ERR_NOT_IMPLEMENTED, "variadic functions NIY");
     }
 
