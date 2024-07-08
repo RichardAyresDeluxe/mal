@@ -67,12 +67,23 @@ static MalVal *divide(List *args, ENV *env)
   return malval_number(result);
 }
 
+static MalVal *lessthan(List *args, ENV *env)
+{
+  assert(args != NULL && args->tail != NULL);
+
+  assert(VAL_TYPE(args->head) == TYPE_NUMBER && VAL_TYPE(args->tail->head) == TYPE_NUMBER);
+
+  if (args->head->data.number < args->tail->head->data.number)
+    return T;
+  return F;
+}
+
 static MalVal *builtin_apply(List *args, ENV *env)
 {
   MalVal *f = args->head;
 
   if (VAL_TYPE(f) != TYPE_FUNCTION) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "first argument to apply must be a function");
+    err_warning(ERR_ARGUMENT_MISMATCH, "apply: first argument must be a function");
     return NIL;
   }
 
@@ -81,14 +92,14 @@ static MalVal *builtin_apply(List *args, ENV *env)
   linked_list_reverse((void*)&args);
 
   if (!args || VAL_TYPE(args->head) != TYPE_LIST) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "last argument must be a list");
+    err_warning(ERR_ARGUMENT_MISMATCH, "apply: last argument must be a list");
     return NIL;
   }
   
   List *all = args->head->data.list;
 
   for (List *rover = args->tail; rover; rover = rover->tail)
-    all = cons(args->head, all);
+    all = cons(rover->head, all);
 
   MalVal *rv = apply(f->data.fn, all);
   list_release(all);
@@ -98,6 +109,20 @@ static MalVal *builtin_apply(List *args, ENV *env)
 static MalVal *builtin_list(List *args, ENV *env)
 {
   return malval_list(list_acquire(args));
+}
+
+static MalVal *builtin_cons(List *args, ENV *env)
+{
+  assert(args != NULL && args->tail != NULL);
+
+  List *list = NULL;
+  
+  if (!VAL_IS_NIL(args->tail->head))
+    list = args->tail->head->data.list;
+
+  list = cons(args->head, list);
+
+  return malval_list(list);
 }
 
 static void warn_symbol_not_found(const char *name)
@@ -281,13 +306,13 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
       return NIL;
     }
-    MalVal *val = eval_ast(tail->head, env);
+    MalVal *val = EVAL(tail->head, env);
     if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
       return tail->tail->tail ? 
-        eval_ast(tail->tail->tail->head, env) : NIL;
+        EVAL(tail->tail->tail->head, env) : NIL;
     }
     else {
-      return eval_ast(tail->tail->head, env);
+      return EVAL(tail->tail->head, env);
     }
   }
   else {
@@ -310,11 +335,11 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     result = apply(f->data.list->head->data.fn, f->data.list->tail);
   }
 
-  gc_mark(ast, NULL);
-  gc_mark_list(list, NULL);
-  gc_mark_env(env, NULL);
-  gc_mark(result, NULL);
-  gc(FALSE, FALSE);
+  // gc_mark(ast, NULL);
+  // gc_mark_list(list, NULL);
+  // gc_mark_env(env, NULL);
+  // gc_mark(result, NULL);
+  // gc(FALSE, FALSE);
 
   return result; // ? result : NIL;
 }
@@ -359,7 +384,9 @@ static void build_env(void)
     {"-", minus},
     {"*", multiply},
     {"/", divide},
+    {"<", lessthan},
     {"apply", builtin_apply},
+    {"cons", builtin_cons},
     {"list", builtin_list},
   };
 

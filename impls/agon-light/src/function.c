@@ -5,6 +5,7 @@
 #include "listsort.h"
 #include "gc.h"
 
+#include <string.h>
 #include <assert.h>
 
 extern MalVal *eval_ast(MalVal *ast, ENV *env);
@@ -59,7 +60,12 @@ static struct Body *create_body(List *list)
   body->body = malval_list(list->tail);
 
   MalVal *last = list_last(body->binds);
-  body->is_variadic = last && last->data.string[0] == '&';
+  if (last && last->data.string[0] == '&') {
+    body->is_variadic = 1;
+    /* lose the '&' in the symbol name */
+    unsigned c = strlen(last->data.string);
+    memmove(last->data.string, &last->data.string[1], c);
+  }
 
   return body;
 }
@@ -121,11 +127,11 @@ MalVal *function_create(List *body, ENV *env)
       return NIL;
     }
     
-    if (last && nvariadic == 1 && list_last(last->binds)->data.string[0] != '&') {
-      err_warning(ERR_ARGUMENT_MISMATCH, "variadic body must have highest arity");
-      function_destroy(func);
-      return NIL;
-    }
+    // if (last && nvariadic == 1 && list_last(last->binds)->data.string[0] != '&') {
+    //   err_warning(ERR_ARGUMENT_MISMATCH, "variadic body must have highest arity");
+    //   function_destroy(func);
+    //   return NIL;
+    // }
   }
 
   return malval_function(func);
@@ -155,28 +161,41 @@ MalVal *apply(Function *func, List *args)
 
   MalVal *rv = NULL;
   unsigned argc = list_count(args);
+  ENV *env = NULL;
 
   struct Body *b = func->fn.bodies;
   while(b) {
     if (b->arity == argc && !b->is_variadic) {
-      ENV *env = env_create(func->env, b->binds, args);
-      rv = eval_ast(b->body, env);
-      assert(VAL_TYPE(rv) == TYPE_LIST);
-      rv = rv->data.list->head;
-      env_destroy(env, FALSE);
+      env = env_create(func->env, b->binds, args);
       break;
     }
-    else if (b->arity >= argc && b->is_variadic) {
-      err_fatal(ERR_NOT_IMPLEMENTED, "variadic functions NIY");
+    else if (b->arity <= argc && b->is_variadic) {
+      unsigned bindc = list_count(b->binds);
+      List *p = NULL;
+      for (unsigned i = 0; i < (bindc-1); i++) {
+        p = cons(args->head, p);
+        args = args->tail;
+      }
+
+      p = cons(malval_list(args), p);
+      linked_list_reverse((void**)&p);
+      env = env_create(func->env, b->binds, p);
+      list_release(p);
+      break;
     }
 
     b = b->next;
   }
 
-  if (rv == NULL && b == NULL) {
+  if (b == NULL) {
     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
     return NIL;
   }
+
+  rv = eval_ast(b->body, env);
+  assert(VAL_TYPE(rv) == TYPE_LIST);
+  rv = rv->data.list->head;
+  env_destroy(env, FALSE);
 
   return rv ? rv : NIL;
 }

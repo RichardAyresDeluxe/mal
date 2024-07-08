@@ -39,7 +39,7 @@ typedef struct MalVal {
     struct List *vec;
     struct List *map;
     struct Function *fn;
-    const char *string;
+    char *string;
     void *data;
   } data;
 } MalVal;
