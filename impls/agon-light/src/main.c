@@ -180,85 +180,98 @@ static MalVal *EVAL_fn_star(List *list, ENV *env)
 
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
-  if (ast->type != TYPE_LIST)
-    return eval_ast(ast, env);
-  if (ast->data.list == NULL)
-    return ast; /* empty list */
+  while (TRUE)
+  {
+    if (ast->type != TYPE_LIST)
+      return eval_ast(ast, env);
+    if (ast->data.list == NULL)
+      return ast; /* empty list */
 
-  MalVal *result = NULL;
-  List *list = ast->data.list;
+    List *list = ast->data.list;
 
-  MalVal *head = list->head;
-  List *tail = list->tail;
+    MalVal *head = list->head;
+    List *tail = list->tail;
 
-  if (head->type == TYPE_SYMBOL
-   && strcmp(head->data.string, "def!") == 0
-  ) {
-    result = EVAL_def(tail, env);
-  }
-  else if (head->type == TYPE_SYMBOL
-        && strcmp(head->data.string, "let*") == 0
-  ) {
-    result = EVAL_let(tail, env);
-  }
-  else if (head->type == TYPE_SYMBOL
-        && strcmp(head->data.string, "do") == 0
-  ) {
-    MalVal *val = NULL;
-    for (List *rover = tail; rover; rover = rover->tail) {
-      malval_reset_temp(val, NULL);
-      val = EVAL(rover->head, env);
+    if (head->type == TYPE_SYMBOL
+     && strcmp(head->data.string, "def!") == 0
+    ) {
+      return EVAL_def(tail, env);
     }
-    return val ? val : NIL;
-  }
-  else if (head->type == TYPE_SYMBOL
-        && strcmp(head->data.string, "fn*") == 0
-  ) {
-    return EVAL_fn_star(tail, env);
-  }
-  else if (head->type == TYPE_SYMBOL
-        && strcmp(head->data.string, "if") == 0
-  ) {
-    if (!tail || !tail->tail) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
-      return NIL;
+    else if (head->type == TYPE_SYMBOL
+          && strcmp(head->data.string, "let*") == 0
+    ) {
+      return EVAL_let(tail, env);
     }
-    MalVal *val = EVAL(tail->head, env);
-    if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
-      return tail->tail->tail ? 
-        EVAL(tail->tail->tail->head, env) : NIL;
+    else if (head->type == TYPE_SYMBOL
+          && strcmp(head->data.string, "do") == 0
+    ) {
+      if (!tail) /* empty */
+        return NIL;
+
+      List *rover = tail;
+      while (rover && rover->tail) {
+        MalVal *val = EVAL(rover->head, env);
+        malval_reset_temp(val, NULL);
+        rover = rover->tail;
+      }
+
+      ast = rover->head;
+      continue;
+    }
+    else if (head->type == TYPE_SYMBOL
+          && strcmp(head->data.string, "fn*") == 0
+    ) {
+      return EVAL_fn_star(tail, env);
+    }
+    else if (head->type == TYPE_SYMBOL
+          && strcmp(head->data.string, "if") == 0
+    ) {
+      if (!tail || !tail->tail) {
+        err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
+        return NIL;
+      }
+      MalVal *val = EVAL(tail->head, env);
+      if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
+        /* false */
+        if (tail->tail->tail) {
+          ast = tail->tail->tail->head;
+          continue;
+        }
+        else
+          return NIL;
+      }
+      else {
+        /* true */
+        ast = tail->tail->head;
+        continue;
+      }
     }
     else {
-      return EVAL(tail->tail->head, env);
-    }
-  }
-  else {
-    MalVal *f = eval_ast(ast, env);
-    if (!f)
+      MalVal *f = eval_ast(ast, env);
+      if (!f)
+          return NULL;
+      if (VAL_IS_NIL(f))
+        return NIL;
+      assert(f->type == TYPE_LIST);
+      assert(f->data.list != NULL);
+
+      if (VAL_IS_NIL(f->data.list->head))
         return NULL;
-    if (VAL_IS_NIL(f))
-      return NIL;
-    assert(f->type == TYPE_LIST);
-    assert(f->data.list != NULL);
 
-    if (VAL_IS_NIL(f->data.list->head))
-      return NULL;
+      if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION) {
+        err_warning(ERR_ARGUMENT_MISMATCH, "not a function");
+        return NIL;
+      }
 
-    if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "not a function");
-      return NIL;
+      return apply(f->data.list->head->data.fn, f->data.list->tail);
     }
 
-    result = apply(f->data.list->head->data.fn, f->data.list->tail);
+    // gc_mark(ast, NULL);
+    // gc_mark_list(list, NULL);
+    // gc_mark_env(env, NULL);
+    // gc_mark(result, NULL);
+    // gc(FALSE, FALSE);
   }
-
-  // gc_mark(ast, NULL);
-  // gc_mark_list(list, NULL);
-  // gc_mark_env(env, NULL);
-  // gc_mark(result, NULL);
-  // gc(FALSE, FALSE);
-
-  return result; // ? result : NIL;
 }
 
 MalVal *READ(char *s)
