@@ -132,47 +132,6 @@ static MalVal *EVAL_def(List *list, ENV *env)
   return value;
 }
 
-static MalVal *EVAL_let(List *list, ENV *env)
-{
-  if (list_count(list) != 2) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
-    return NIL;
-  }
-
-  ENV *let = env_create(env, NULL, NULL);
-
-  if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
-    env_release(let);
-    return NIL;
-  }
-
-  List *bindings = list->head->data.list;
-  if ((list_count(bindings) % 2) != 0) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
-    env_release(let);
-    return NIL;
-  }
-
-  for (List *rover = bindings;
-       rover && rover->tail;
-       rover = rover->tail->tail)
-  {
-    if (rover->head->type != TYPE_SYMBOL) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
-      env_release(let);
-      return NIL;
-    }
-    env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
-  }
-
-  MalVal *result = EVAL(list->tail->head, let);
-
-  env_release(let);
-
-  return result ? result : NIL;
-}
-
 static MalVal *EVAL_fn_star(List *list, ENV *env)
 {
   return function_create(list, env);
@@ -200,7 +159,47 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "let*") == 0
     ) {
-      return EVAL_let(tail, env);
+      // return EVAL_let(tail, env);
+      List *list = tail;
+
+      if (list_count(list) != 2) {
+        err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
+        return NIL;
+      }
+
+      ENV *let = env_create(env, NULL, NULL);
+
+      if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
+        err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
+        env_release(let);
+        return NIL;
+      }
+
+      List *bindings = list->head->data.list;
+      if ((list_count(bindings) % 2) != 0) {
+        err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
+        env_release(let);
+        return NIL;
+      }
+
+      for (List *rover = bindings;
+           rover && rover->tail;
+           rover = rover->tail->tail)
+      {
+        if (rover->head->type != TYPE_SYMBOL) {
+          err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
+          env_release(let);
+          return NIL;
+        }
+        env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
+      }
+
+      env_release(env);
+
+      ast = list->tail->head;
+      env = let;
+
+      continue;
     }
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "do") == 0
