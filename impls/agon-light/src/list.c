@@ -57,3 +57,30 @@ MalVal *list_last(List *list)
   }
   return last ? last->head : NULL;
 }
+
+bool list_equals(List *_a, List *_b)
+{
+  List *a = _a, *b = _b;
+
+  while (a && b) {
+    if (!malval_equals(a->head, b->head))
+      return FALSE;
+
+    a = a->tail;
+    b = b->tail;
+  }
+
+  if (a || b)
+    return FALSE;
+
+  return TRUE;
+}
+
+bool list_forall(List *list, predicate p, void *data)
+{
+  for (List *rover = list; rover; rover = rover->tail) {
+    if (!p(rover->head, data))
+      return FALSE;
+  }
+  return TRUE;
+}

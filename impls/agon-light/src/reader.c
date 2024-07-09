@@ -8,8 +8,8 @@
 #include "heap.h"
 #include "listsort.h"
 #include "gc.h"
+#include "str.h"
 
-extern char *strdup(const char *);
 
 static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt);
 static MalVal *read_form(lex_token_t *token, lex_token_t **next);
@@ -24,6 +24,20 @@ MalVal *read_str(void)
 {
   lex_token_t *end;
   lex_token_t *tokens = parse_lisp(repl_fgets, "user> ");
+  if (!tokens)
+    return malval_nil();
+
+  linked_list_reverse((void**)&tokens);
+
+  MalVal *val = read_form(tokens, &end);
+  lex_free_tokens(tokens);
+  return val;
+}
+
+MalVal *read_string(char *s)
+{
+  lex_token_t *end;
+  lex_token_t *tokens = parse_lisp_string(s);
   if (!tokens)
     return malval_nil();
 

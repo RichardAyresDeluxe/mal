@@ -4,15 +4,15 @@
 #include "list.h"
 #include "itoa.h"
 #include "printer.h"
+#include "str.h"
 
-extern char *strdup(const char *);
 
-static const char *pr_str_list(List *list);
-static const char *pr_str_vector(List *list);
-static const char *pr_str_map(List *list);
-static const char *pr_str_readable(const char *);
+static char *pr_str_list(List *list, bool readable);
+static char *pr_str_vector(List *list, bool readable);
+static char *pr_str_map(List *list, bool readable);
+static char *pr_str_readable(const char *);
 
-const char *pr_str(const MalVal *val, bool readable)
+char *pr_str(const MalVal *val, bool readable)
 {
   char buf[24];
 
@@ -22,13 +22,13 @@ const char *pr_str(const MalVal *val, bool readable)
       return strdup(buf);
 
     case TYPE_LIST:
-      return pr_str_list(val->data.list);
+      return pr_str_list(val->data.list, readable);
 
     case TYPE_VECTOR:
-      return pr_str_vector(val->data.vec);
+      return pr_str_vector(val->data.vec, readable);
 
     case TYPE_MAP:
-      return pr_str_map(val->data.map);
+      return pr_str_map(val->data.map, readable);
 
     case TYPE_STRING:
       if (readable) {
@@ -50,7 +50,7 @@ const char *pr_str(const MalVal *val, bool readable)
       return strdup("nil");
 
     case TYPE_BOOL:
-      return strdup(val->data.number ? "true" : "false");
+      return strdup(val->data.bool ? "true" : "false");
 
     case TYPE_FUNCTION:
       return strdup("#<function>");
@@ -59,7 +59,7 @@ const char *pr_str(const MalVal *val, bool readable)
   return strdup("Unknown");
 }
 
-static const char *pr_str_container(char pfx, char sfx, List *list)
+static char *pr_str_container(char pfx, char sfx, List *list, bool readable)
 {
   char *s = heap_malloc(3);
   s[0] = pfx;
@@ -67,7 +67,7 @@ static const char *pr_str_container(char pfx, char sfx, List *list)
   unsigned len = 1;
 
   for (List *rover = list; rover; rover = rover->tail) {
-    const char *s2 = pr_str(rover->head, TRUE);
+    const char *s2 = pr_str(rover->head, readable);
     unsigned newlen = len + strlen(s2) + 1;
     char *newstr = heap_malloc(newlen + 2);
 
@@ -97,19 +97,19 @@ static const char *pr_str_container(char pfx, char sfx, List *list)
 
 }
 
-const char *pr_str_list(List *list)
+char *pr_str_list(List *list, bool readable)
 {
-  return pr_str_container('(', ')', list);
+  return pr_str_container('(', ')', list, readable);
 }
 
-const char *pr_str_vector(List *list)
+char *pr_str_vector(List *list, bool readable)
 {
-  return pr_str_container('[', ']', list);
+  return pr_str_container('[', ']', list, readable);
 }
 
-const char *pr_str_map(List *map)
+char *pr_str_map(List *map, bool readable)
 {
-  return pr_str_container('{', '}', map);
+  return pr_str_container('{', '}', map, readable);
 }
 
 static char *catchar(char **sptr, char c)
@@ -141,7 +141,7 @@ static char *catchar(char **sptr, char c)
   return s;
 }
 
-const char *pr_str_readable(const char *in)
+char *pr_str_readable(const char *in)
 {
   char *s = heap_malloc(2);
   s[0] = '"';

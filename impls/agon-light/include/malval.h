@@ -21,6 +21,7 @@ typedef uint8_t bool;
 #define TYPE_MAP      0x23
 #define TYPE_STRING   0x31
 #define TYPE_SYMBOL   0x32
+// #define TYPE_KEYWORD   TYPE_SYMBOL /* keywords are symbols */
 
 struct List;
 struct ENV;
@@ -50,6 +51,7 @@ MalVal *malval_create(uint8_t type);
 #define malval_nil() malval_create(TYPE_NIL)
 MalVal *malval_bool(bool);
 MalVal *malval_symbol(const char *);
+MalVal *malval_string(const char *);
 MalVal *malval_list(struct List*);
 MalVal *malval_vector(struct List*);
 MalVal *malval_map(struct List*);
@@ -67,5 +69,7 @@ void malval_reset_temp(MalVal *, void*);
 
 void malval_free(MalVal*);
 unsigned malval_size(MalVal*, bool);
+
+bool malval_equals(MalVal*, MalVal*);
 
 #endif /* _MALVAL_H */

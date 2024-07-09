@@ -4,8 +4,10 @@
 #include "err.h"
 #include "listsort.h"
 #include "gc.h"
+#include "printer.h"
 
 #include <string.h>
+#include <stdio.h>
 #include <assert.h>
 
 extern MalVal *eval_ast(MalVal *ast, ENV *env);
@@ -42,11 +44,20 @@ static struct Body *create_body(List *list)
 {
   MalVal *binds = list->head;
 
-  if (VAL_TYPE(binds) != TYPE_VECTOR) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be a vector");
+  List *lbinds;
+
+  if (VAL_TYPE(binds) == TYPE_VECTOR) {
+    lbinds = binds->data.vec;
+  }
+  else if (VAL_TYPE(binds) == TYPE_LIST) {
+    lbinds = binds->data.list;
+  }
+  else {
+    err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be a vector or list");
     return NULL;
   }
-  for (List *bind = binds->data.vec; bind; bind = bind->tail) {
+
+  for (List *bind = lbinds; bind; bind = bind->tail) {
     if (VAL_TYPE(bind->head) != TYPE_SYMBOL) {
       err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be symbols");
       return NULL;
@@ -55,7 +66,7 @@ static struct Body *create_body(List *list)
 
   struct Body *body = heap_malloc(sizeof(struct Body));
   body->next = NULL;
-  body->binds = list_acquire(binds->data.vec);
+  body->binds = list_acquire(lbinds);
   body->arity = list_count(body->binds);
   body->body = malval_list(list->tail);
 
@@ -76,13 +87,36 @@ static int8_t arity_comp(void *_a, void *_b, void *data)
   return a->arity - b->arity;
 }
 
+static bool is_symbol(MalVal *val, void *data)
+{
+  return VAL_TYPE(val) == TYPE_SYMBOL;
+}
+
+static bool is_single_body(List *body)
+{
+  unsigned c = list_count(body);
+
+  if (c == 1)
+    return FALSE;
+  if (c > 2)
+    return FALSE;
+  /* so do we have a list of bindings then a body, or
+   * a vector of bindings then a body,
+   * or two bodies */
+  if (VAL_TYPE(body->head) == TYPE_VECTOR)
+    return TRUE;
+  if (VAL_TYPE(body->head) == TYPE_LIST && list_forall(body->head->data.list, is_symbol, NULL))
+    return TRUE;
+  return FALSE;
+}
+
 MalVal *function_create(List *body, ENV *env)
 {
   Function *func = heap_malloc(sizeof(Function));
-  func->env = env; //env_create(env, NULL, NULL);
+  func->env = env_acquire(env); //env_create(env, NULL, NULL);
   func->is_builtin = 0;
 
-  if (VAL_TYPE(body->head) == TYPE_VECTOR) {
+  if (is_single_body(body)) {
     /* single body */
     func->fn.bodies = create_body(body);
   }
@@ -139,7 +173,7 @@ MalVal *function_create(List *body, ENV *env)
 
 void function_destroy(Function *func)
 {
-  // env_destroy(func->env, FALSE);
+  env_release(func->env);
 
   if (!func->is_builtin) {
     struct Body *rover = func->fn.bodies;
@@ -169,7 +203,7 @@ MalVal *apply(Function *func, List *args)
       env = env_create(func->env, b->binds, args);
       break;
     }
-    else if (b->arity <= argc && b->is_variadic) {
+    else if (/*b->arity <= argc &&*/ b->is_variadic) {
       unsigned bindc = list_count(b->binds);
       List *p = NULL;
       for (unsigned i = 0; i < (bindc-1); i++) {
@@ -195,7 +229,7 @@ MalVal *apply(Function *func, List *args)
   rv = eval_ast(b->body, env);
   assert(VAL_TYPE(rv) == TYPE_LIST);
   rv = rv->data.list->head;
-  env_destroy(env, FALSE);
+  env_release(env);
 
   return rv ? rv : NIL;
 }

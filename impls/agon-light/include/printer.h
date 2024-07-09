@@ -3,6 +3,6 @@
 
 #include "malval.h"
 
-extern const char *pr_str(const MalVal*, bool);
+extern char *pr_str(const MalVal*, bool);
 
 #endif /* _PRINTER_H */

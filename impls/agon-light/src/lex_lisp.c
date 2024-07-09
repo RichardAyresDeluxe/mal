@@ -428,3 +428,16 @@ lex_token_t *parse_lisp(lexer_get_input_t get_input, void *get_input_data)
 {
     return lex_process(lex_root, NULL, get_input, get_input_data);
 }
+
+char *get_input_string(lexer_t lexer, char *buf, int sz, void *_s)
+{
+    char **s = (char**)_s;
+    strncpy(buf, *s, sz-1);
+    *s += strlen(buf);
+    return buf;
+}
+
+lex_token_t *parse_lisp_string(char *s)
+{
+    return lex_process(lex_root, NULL, get_input_string, (void*)&s);
+}

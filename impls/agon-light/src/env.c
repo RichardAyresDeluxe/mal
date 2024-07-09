@@ -8,14 +8,18 @@
 
 struct ENV {
   struct Map *map;
+  unsigned ref_count;
   ENV *parent;
 };
+
+static void env_destroy(ENV *env, bool delete_parent);
 
 ENV *env_create(ENV *parent, List *binds, List *exprs)
 {
   ENV *env = heap_malloc(sizeof(ENV));
   env->map = map_create();
-  env->parent = parent;
+  env->ref_count = 1;
+  env->parent = env_acquire(parent);
   
   List *bind, *expr;
   for (bind = binds, expr = exprs; bind && expr; bind = bind->tail, expr = expr->tail) {
@@ -29,6 +33,20 @@ ENV *env_create(ENV *parent, List *binds, List *exprs)
   return env;
 }
 
+ENV *env_acquire(ENV *env)
+{
+  if (env)
+    env->ref_count++;
+  return env;
+}
+
+void env_release(ENV *env)
+{
+  if (env && env->ref_count-- == 1) {
+    env_destroy(env, TRUE);
+  }
+}
+
 void env_destroy(ENV *env, bool delete_parent)
 {
   if (!env)
@@ -36,7 +54,7 @@ void env_destroy(ENV *env, bool delete_parent)
 
   map_destroy(env->map);
   if (delete_parent)
-    env_destroy(env->parent, TRUE);
+    env_release(env->parent);
 }
 
 void env_set(ENV *env, const char *key, MalVal *val)

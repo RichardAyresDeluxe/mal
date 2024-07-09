@@ -5,9 +5,9 @@
 #include "heap.h"
 #include "gc.h"
 #include "function.h"
+#include "err.h"
+#include "str.h"
 
-/* not in C99 */
-extern char *strdup(const char*);
 
 MalVal *malval_create(uint8_t type)
 {
@@ -22,6 +22,13 @@ MalVal *malval_create(uint8_t type)
 MalVal *malval_symbol(const char *s)
 {
   MalVal *val = malval_create(TYPE_SYMBOL);
+  val->data.string = strdup(s);
+  return val;
+}
+
+MalVal *malval_string(const char *s)
+{
+  MalVal *val = malval_create(TYPE_STRING);
   val->data.string = strdup(s);
   return val;
 }
@@ -121,4 +128,43 @@ void malval_reset_temp(MalVal *val, void *data)
       list_foreach(val->data.map, malval_reset_temp, data);
       break;
   }
+}
+
+bool malval_equals(MalVal *a, MalVal *b)
+{
+  if (VAL_TYPE(a) != VAL_TYPE(b)) {
+
+    if (VAL_TYPE(a) == TYPE_LIST && VAL_TYPE(b) == TYPE_VECTOR)
+      return list_equals(a->data.list, b->data.vec);
+    else if (VAL_TYPE(b) == TYPE_LIST && VAL_TYPE(a) == TYPE_VECTOR)
+      return list_equals(b->data.list, a->data.vec);
+    return FALSE;
+  }
+
+  switch (VAL_TYPE(a)) {
+    case TYPE_NIL:
+      return TRUE;
+    case TYPE_NUMBER:
+      return a->data.number == b->data.number;
+    case TYPE_BOOL:
+      return a->data.bool == b->data.bool;
+    case TYPE_STRING:
+    case TYPE_SYMBOL:
+      if (a->data.string[0] == -1)
+        return strcmp(&a->data.string[1], &b->data.string[1]) == 0;
+      else
+        return strcmp(a->data.string, b->data.string) == 0;
+    case TYPE_LIST:
+      return list_equals(a->data.list, b->data.list);
+    case TYPE_VECTOR:
+      return list_equals(a->data.vec, b->data.vec);
+    case TYPE_MAP:
+      return list_equals(a->data.map, b->data.map);
+
+    default:
+      err_warning(ERR_ARGUMENT_MISMATCH, "unknown type");
+      break;
+  }
+
+  return FALSE;
 }

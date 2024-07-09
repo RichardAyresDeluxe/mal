@@ -1,10 +1,10 @@
 #include "map.h"
 #include "heap.h"
 #include "gc.h"
+#include "str.h"
 
 #include <string.h>
 
-extern char *strdup(const char*);
 
 #define MAP_INIT_TABLE_SIZE 9
 

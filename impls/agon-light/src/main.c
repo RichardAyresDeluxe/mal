@@ -13,117 +13,13 @@
 #include "listsort.h"
 #include "heap.h"
 #include "function.h"
+#include "core.h"
+#include "str.h"
 
 ENV *repl_env = NULL;
 
 /** This can return NULL */
 MalVal *EVAL(MalVal *ast, ENV *env);
-
-static MalVal *plus(List *args, ENV *env)
-{
-  int result = 0;
-
-  for (List *rover = args; rover; rover = rover->tail) {
-    assert(rover->head->type == TYPE_NUMBER);
-    result += rover->head->data.number;
-  }
-  return malval_number(result);
-}
-
-static MalVal *minus(List *args, ENV *env)
-{
-  assert(args != NULL);
-
-  int result = args->head->data.number;
-
-  for (List *rover = args->tail; rover; rover = rover->tail) {
-    assert(rover->head->type == TYPE_NUMBER);
-    result -= rover->head->data.number;
-  }
-  return malval_number(result);
-}
-
-static MalVal *multiply(List *args, ENV *env)
-{
-  int result = 1;
-
-  for (List *rover = args; rover; rover = rover->tail) {
-    assert(rover->head->type == TYPE_NUMBER);
-    result *= rover->head->data.number;
-  }
-  return malval_number(result);
-}
-
-static MalVal *divide(List *args, ENV *env)
-{
-  assert(args != NULL && args->tail != NULL);
-
-  int result = args->head->data.number;
-
-  for (List *rover = args->tail; rover; rover = rover->tail) {
-    assert(rover->head->type == TYPE_NUMBER);
-    result /= rover->head->data.number;
-  }
-  return malval_number(result);
-}
-
-static MalVal *lessthan(List *args, ENV *env)
-{
-  assert(args != NULL && args->tail != NULL);
-
-  assert(VAL_TYPE(args->head) == TYPE_NUMBER && VAL_TYPE(args->tail->head) == TYPE_NUMBER);
-
-  if (args->head->data.number < args->tail->head->data.number)
-    return T;
-  return F;
-}
-
-static MalVal *builtin_apply(List *args, ENV *env)
-{
-  MalVal *f = args->head;
-
-  if (VAL_TYPE(f) != TYPE_FUNCTION) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "apply: first argument must be a function");
-    return NIL;
-  }
-
-  args = args->tail;
-
-  linked_list_reverse((void*)&args);
-
-  if (!args || VAL_TYPE(args->head) != TYPE_LIST) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "apply: last argument must be a list");
-    return NIL;
-  }
-  
-  List *all = args->head->data.list;
-
-  for (List *rover = args->tail; rover; rover = rover->tail)
-    all = cons(rover->head, all);
-
-  MalVal *rv = apply(f->data.fn, all);
-  list_release(all);
-  return rv;
-}
-
-static MalVal *builtin_list(List *args, ENV *env)
-{
-  return malval_list(list_acquire(args));
-}
-
-static MalVal *builtin_cons(List *args, ENV *env)
-{
-  assert(args != NULL && args->tail != NULL);
-
-  List *list = NULL;
-  
-  if (!VAL_IS_NIL(args->tail->head))
-    list = args->tail->head->data.list;
-
-  list = cons(args->head, list);
-
-  return malval_list(list);
-}
 
 static void warn_symbol_not_found(const char *name)
 {
@@ -138,12 +34,33 @@ static void warn_symbol_not_found(const char *name)
   heap_free(s);
 }
 
+static MalVal *symbol_to_keyword(const char *symbol)
+{
+  unsigned l = strlen(symbol);
+  char *s = heap_malloc(l + 1);
+
+  s[0] = ':';
+  memcpy(&s[1], &symbol[1], l - 1);
+  s[l] = '\0';
+
+  MalVal *value = malval_symbol(s);
+  heap_free(s);
+
+  return value;
+}
 
 MalVal *eval_ast(MalVal *ast, ENV *env)
 {
   if (ast->type == TYPE_SYMBOL)
   {
-    MalVal *value = env_get(env, ast->data.string);
+    MalVal *value = NULL;
+    if (ast->data.string[0] == -1) {
+      /* is a keyword */
+      value = symbol_to_keyword(ast->data.string);
+    }
+    else
+      value = env_get(env, ast->data.string);
+
     if (value)
       return value;
 
@@ -226,14 +143,14 @@ static MalVal *EVAL_let(List *list, ENV *env)
 
   if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
-    env_destroy(let, FALSE);
+    env_release(let);
     return NIL;
   }
 
   List *bindings = list->head->data.list;
   if ((list_count(bindings) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
-    env_destroy(let, FALSE);
+    env_release(let);
     return NIL;
   }
 
@@ -243,7 +160,7 @@ static MalVal *EVAL_let(List *list, ENV *env)
   {
     if (rover->head->type != TYPE_SYMBOL) {
       err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
-      env_destroy(let, FALSE);
+      env_release(let);
       return NIL;
     }
     env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
@@ -251,7 +168,7 @@ static MalVal *EVAL_let(List *list, ENV *env)
 
   MalVal *result = EVAL(list->tail->head, let);
 
-  env_destroy(let, FALSE);
+  env_release(let);
 
   return result ? result : NIL;
 }
@@ -290,7 +207,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     MalVal *val = NULL;
     for (List *rover = tail; rover; rover = rover->tail) {
       malval_reset_temp(val, NULL);
-      val = eval_ast(rover->head, env);
+      val = EVAL(rover->head, env);
     }
     return val ? val : NIL;
   }
@@ -344,9 +261,14 @@ MalVal *EVAL(MalVal *ast, ENV *env)
   return result; // ? result : NIL;
 }
 
-MalVal *READ(void)
+MalVal *READ(char *s)
 {
-  return read_str();
+  if (s == NULL) {
+    return read_str();
+  }
+  else {
+    return read_string(s);
+  }
 }
 
 const char *PRINT(const MalVal *val)
@@ -354,16 +276,16 @@ const char *PRINT(const MalVal *val)
   return pr_str(val ? val : NIL, TRUE);
 }
 
-const char *rep(ENV *repl_env)
+const char *rep(ENV *repl_env, char *s)
 {
-  return PRINT(EVAL(READ(), repl_env));
+  return PRINT(EVAL(READ(s), repl_env));
 }
 
 static void cleanup(void)
 {
   unsigned count, size;
 
-  env_destroy(repl_env, TRUE);
+  env_release(repl_env);
   repl_env = NULL;
   gc(TRUE, TRUE);
   gc(TRUE, TRUE);
@@ -376,45 +298,56 @@ static void cleanup(void)
 
 static void build_env(void)
 {
-  struct {
-    const char *name;
-    builtin_fn *fn;
-  } fns[] = {
-    {"+", plus},
-    {"-", minus},
-    {"*", multiply},
-    {"/", divide},
-    {"<", lessthan},
-    {"apply", builtin_apply},
-    {"cons", builtin_cons},
-    {"list", builtin_list},
-  };
-
   repl_env = env_create(NULL, NULL, NULL);
 
-  for (unsigned i=0; i < sizeof(fns)/sizeof(fns[0]); i++) {
-    env_set(repl_env, fns[i].name, function_create_builtin(fns[i].fn));
+  for (struct ns *ns = core_ns; ns->name != NULL; ns++) {
+    env_set(repl_env, ns->name, function_create_builtin(ns->fn));
   }
 
   env_set(repl_env, "nil", NIL);
   env_set(repl_env, "true", T);
   env_set(repl_env, "false", F);
 }
-  
+
+/* init mal code, separated by \f */
+char init[] = "\
+(def! not (fn* (a) (if a false true)))\f\
+(def! range\n\
+  (fn* ([end] (range 0 end))\n\
+       ([start end] (range start end 1))\n\
+       ([start end step]\n\
+        (if (< start end)\n\
+          (cons start (range (+ step start) end step))))))\f\
+(def! inc (fn* (a) (+ a 1)))\f\
+(def! dec (fn* (a) (- a 1)))\f\
+(def! reduce \n\
+  (fn* ([f val xs] (if (empty? xs) val (reduce f (f val (first xs)) (rest xs))))\n\
+       ([f xs] (reduce f (first xs) (rest xs)))))\f\
+(def! map\n\
+  (fn* ([f xs]\n\
+        (if (not (empty? xs))\n\
+          (cons (f (first xs)) (map f (rest xs)))))))";
+
 int main(int argc, char **argv)
 {
   atexit(cleanup);
 
   build_env();
 
+  char *s = strtok(init, "\f");
+  do {
+    rep(repl_env, s);
+    s = strtok(NULL, "\f");
+  } while(s);
+
   while (1) {
-    const char *s = rep(repl_env);
+    const char *s = rep(repl_env, NULL);
     if (!s) {
       exit(0);
     }
     fputs(s, stdout);
     fputc('\n', stdout);
-    gc(FALSE, TRUE);
+    // gc(FALSE, TRUE);
   }
 }
 

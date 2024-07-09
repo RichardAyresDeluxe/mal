@@ -4,6 +4,7 @@
 #include "lex.h"
 
 extern lex_token_t *parse_lisp(lexer_get_input_t, void*);
+extern lex_token_t *parse_lisp_string(char*);
 extern const char *get_token_name(token_type_t);
 
 #define TOKEN_TYPE_STRING       0x01  /* 0b00000001 */
