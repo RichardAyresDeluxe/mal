@@ -215,23 +215,23 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
   *envout = let;
 }
 
-static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **envout)
-{
-  /* 
-   * TCO mal function call
-   */
-  struct Body *b = NULL;
-  ENV *new_env = function_bind(fn, args, &b);
-  if (b == NULL) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
-    env_release(new_env);
-    *out = NIL;
-    return;
-  }
-
-  *out = b->body;
-  *envout = new_env;
-}
+// static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **envout)
+// {
+//   /* 
+//    * TCO mal function call
+//    */
+//   struct Body *b = NULL;
+//   ENV *new_env = function_bind(fn, args, &b);
+//   if (b == NULL) {
+//     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
+//     env_release(new_env);
+//     *out = NIL;
+//     return;
+//   }
+//
+//   *out = b->body;
+//   *envout = new_env;
+// }
 
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
@@ -290,11 +290,13 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       Function *fn = f->data.list->head->data.fn;
       List *args = f->data.list->tail;
 
-      if (fn->is_builtin) {
-        return fn->fn.builtin(args, env);
-      }
+      return apply(fn, args);
 
-      EVAL_call(fn, args, env, &ast, &env);
+      // if (fn->is_builtin) {
+      //   return fn->fn.builtin(args, env);
+      // }
+      //
+      // EVAL_call(fn, args, env, &ast, &env);
     }
 
     // gc_mark(ast, NULL);
