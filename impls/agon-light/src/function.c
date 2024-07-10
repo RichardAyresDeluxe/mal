@@ -150,11 +150,12 @@ struct Body *function_find_body(Function *func, List *args)
 
   struct Body *b;
   for (b = func->fn.bodies; b && b->next; b = b->next) {
-    if (b->arity > argc)
-      return NULL;
     if (b->arity == argc)
-      return b;
+      break;
   }
+
+  if (b->arity > argc)
+    return NULL;
 
   return b;
 }
