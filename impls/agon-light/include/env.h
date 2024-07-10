@@ -15,6 +15,7 @@ typedef struct ENV ENV;
 ENV *env_create(ENV *parent, List *binds, List *exprs);
 ENV *env_acquire(ENV*);
 void env_release(ENV*);
+void env_flush(ENV*);
 void env_set(ENV *env, const char *key, MalVal *val);
 ENV *env_find(ENV *env, const char *key);
 MalVal *env_get(ENV *env, const char *key);

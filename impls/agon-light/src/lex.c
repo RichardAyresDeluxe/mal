@@ -262,10 +262,11 @@ static lexer_t default_token_handler(lexer_t lexer, lex_token_t *token)
     return lexer;
 }
 
-static void free_lexer(lexer_t lexer)
+void lex_destroy(lexer_t lexer)
 {
     if (lexer)
         heap_free(lexer->build_token);
+    lex_free_tokens(lexer->tokens);
     heap_free(lexer);
 }
 
@@ -297,7 +298,8 @@ lex_token_t *lex_process(
 
     lex_token_t *tokens = lexer->tokens;
 
-    free_lexer(lexer);
+    lexer->tokens = NULL;
+    lex_destroy(lexer);
 
     return tokens;
 }

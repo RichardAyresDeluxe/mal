@@ -324,11 +324,14 @@ static void cleanup(void)
 {
   unsigned count, size;
 
+  env_flush(repl_env);
+
+  gc(TRUE, TRUE);
+  gc(TRUE, TRUE);
+  gc(TRUE, TRUE);
+
   env_release(repl_env);
   repl_env = NULL;
-  gc(TRUE, TRUE);
-  gc(TRUE, TRUE);
-  gc(TRUE, TRUE);
 
   value_info(&count, &size);
   printf("\nValues remaining: %u (%u bytes)\n", count, size);

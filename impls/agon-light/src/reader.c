@@ -269,8 +269,10 @@ static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt)
 
   fputs(prompt, stdout);
 
-  if (feof(stdin))
+  if (feof(stdin)) {
+    lex_destroy(lexer);
     exit(0);
+  }
 
   char *rv = fgets(s, n, stdin);
   if (!rv)

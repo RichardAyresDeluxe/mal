@@ -127,4 +127,7 @@ lex_token_t *lex_get_tokens(lexer_t);
 /** Free a token list */
 void lex_free_tokens(lex_token_t *);
 
+
+void lex_destroy(lexer_t lexer);
+
 #endif /* _LEX_H */

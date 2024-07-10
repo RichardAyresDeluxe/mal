@@ -41,6 +41,17 @@ void env_release(ENV *env)
   }
 }
 
+void env_flush(ENV *env)
+{
+  if (!env)
+    return;
+
+  map_destroy(env->map);
+  env->map = map_create();
+
+  env_flush(env->parent);
+}
+
 void env_destroy(ENV *env)
 {
   if (!env)
@@ -48,6 +59,7 @@ void env_destroy(ENV *env)
 
   map_destroy(env->map);
   env_release(env->parent);
+  heap_free(env);
 }
 
 void env_set(ENV *env, const char *key, MalVal *val)
