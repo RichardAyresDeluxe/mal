@@ -12,16 +12,28 @@ typedef uint8_t bool;
 
 #define FLAG_MARK   0x80
 
-#define TYPE_NIL      0x00
-#define TYPE_FUNCTION 0x01
-#define TYPE_NUMBER   0x11
-#define TYPE_BOOL     0x12
-#define TYPE_LIST     0x21
-#define TYPE_VECTOR   0x22
-#define TYPE_MAP      0x23
-#define TYPE_STRING   0x31
-#define TYPE_SYMBOL   0x32
+typedef uint8_t MalType;
+#define TYPE_NIL      ((MalType)0x00)
+#define TYPE_FUNCTION ((MalType)0x01)
+#define TYPE_ATOM     ((MalType)0x03)
+#define TYPE_NUMBER   ((MalType)0x11)
+#define TYPE_BOOL     ((MalType)0x12)
+#define TYPE_LIST     ((MalType)0x21)
+#define TYPE_VECTOR   ((MalType)0x22)
+#define TYPE_MAP      ((MalType)0x23)
+#define TYPE_STRING   ((MalType)0x31)
+#define TYPE_SYMBOL   ((MalType)0x32)
 // #define TYPE_KEYWORD   TYPE_SYMBOL /* keywords are symbols */
+
+#define METATYPE_MASK       0x30
+#define METATYPE_SCALAR     0x00
+#define METATYPE_NUMERIC    0x10
+#define METATYPE_CONTAINER  0x20
+#define METATYPE_STRING     0x30
+
+#define VAL_METATYPE(val) ((val)->type & METATYPE_MASK)
+#define VAL_IS_NUMERIC(val) (VAL_METATYPE(val) == METATYPE_NUMERIC)
+#define VAL_IS_CONTAINER(val) (VAL_METATYPE(val) == METATYPE_CONTAINER)
 
 struct List;
 struct ENV;
@@ -40,6 +52,7 @@ typedef struct MalVal {
     struct List *vec;
     struct List *map;
     struct Function *fn;
+    struct MalVal *atom;
     char *string;
     void *data;
   } data;
@@ -47,7 +60,7 @@ typedef struct MalVal {
 
 typedef void (*MalValProc)(MalVal *, void *);
 
-MalVal *malval_create(uint8_t type);
+MalVal *malval_create(MalType type);
 #define malval_nil() malval_create(TYPE_NIL)
 MalVal *malval_bool(bool);
 MalVal *malval_symbol(const char *);
@@ -56,6 +69,7 @@ MalVal *malval_list(struct List*);
 MalVal *malval_vector(struct List*);
 MalVal *malval_map(struct List*);
 MalVal *malval_function(struct Function*);
+MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
 
 void malval_reset_temp(MalVal *, void*);

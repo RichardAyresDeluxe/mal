@@ -51,6 +51,9 @@ void gc_mark(MalVal *val, void *data)
     case TYPE_FUNCTION:
       function_gc_mark(val->data.fn, NULL);
       break;
+    case TYPE_ATOM:
+      gc_mark(val->data.atom, NULL);
+      break;
   }
 }
 

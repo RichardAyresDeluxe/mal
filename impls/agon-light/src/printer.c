@@ -66,9 +66,19 @@ char *pr_str(const MalVal *val, bool readable)
 
         return s;
       }
-    }
 
       return strdup("#<function>");
+    }
+
+    case TYPE_ATOM: {
+      char *s = strdup("(atom ");
+      char *s1 = pr_str(val->data.atom, TRUE);
+      catstr(&s, s1);
+      catstr(&s, ")");
+      heap_free(s1);
+      return s;
+    }
+      
   }
 
   return strdup("Unknown");

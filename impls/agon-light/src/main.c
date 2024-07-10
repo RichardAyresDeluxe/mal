@@ -16,6 +16,7 @@
 #include "core.h"
 #include "eval.h"
 #include "function.h"
+#include "str.h"
 
 
 ENV *repl_env = NULL;
@@ -339,8 +340,6 @@ char *rep(ENV *repl_env, char *s)
 
 static void cleanup(void)
 {
-  unsigned count, size;
-
   env_flush(repl_env);
 
   gc(TRUE, TRUE);
@@ -350,11 +349,12 @@ static void cleanup(void)
   env_release(repl_env);
   repl_env = NULL;
 
+  unsigned count, size;
   value_info(&count, &size);
-  printf("\nValues remaining: %u (%u bytes)\n", count, size);
+  fprintf(stderr, "Values remaining: %u (%u bytes)\n", count, size);
 
   heap_info(&count, &size);
-  printf("Heap remainig: %u items (%u bytes)\n", count, size);
+  fprintf(stderr, "Heap remainig: %u items (%u bytes)\n", count, size);
 }
 
 static MalVal *builtin_eval(List *args, ENV *ignored)
@@ -379,6 +379,7 @@ static void build_env(void)
   env_set(repl_env, "true", T);
   env_set(repl_env, "false", F);
   env_set(repl_env, "eval", function_create_builtin(builtin_eval));
+  env_set(repl_env, "*ARGV*", malval_list(NULL));
 }
 
 /* init mal code, separated by \f */
@@ -415,13 +416,39 @@ int main(int argc, char **argv)
     s = strtok(NULL, "\f");
   } while(s);
 
+  int arg = 1;
+
+  while (arg < argc) {
+    if (argv[arg][0] == '\0') {
+      arg++;
+      continue;
+    }
+
+    List *args = NULL;
+
+    char *input = strdup("(load-file \"");
+    catstr(&input, argv[arg++]);
+    catstr(&input, "\")");
+
+    for (; arg < argc; arg++)
+      args = cons_weak(malval_string(argv[arg]), args);
+
+    linked_list_reverse((void**)&args);
+    env_set(repl_env, "*ARGV*", malval_list(args));
+    list_release(args);
+
+    char *s = rep(repl_env, input);
+    heap_free(input);
+    heap_free(s);
+    exit(0);
+  }
+
   while (1) {
     char *s = rep(repl_env, NULL);
     if (!s) {
       exit(0);
     }
-    fputs(s, stdout);
-    fputc('\n', stdout);
+    puts(s);
     heap_free(s);
     // gc(FALSE, TRUE);
   }

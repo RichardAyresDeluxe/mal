@@ -9,7 +9,7 @@
 #include "str.h"
 
 
-MalVal *malval_create(uint8_t type)
+MalVal *malval_create(MalType type)
 {
   MalVal *val = heap_malloc(sizeof(MalVal));
   val->mark = 0;
@@ -68,6 +68,13 @@ MalVal *malval_function(Function *fn)
   return val;
 }
 
+MalVal *malval_atom(struct MalVal *v)
+{
+  MalVal *val = malval_create(TYPE_ATOM);
+  val->data.atom = v;
+  return val;
+}
+
 MalVal *malval_bool(bool b)
 {
   MalVal *val = malval_create(TYPE_BOOL);
@@ -112,6 +119,19 @@ unsigned malval_size(MalVal *val, bool deep)
         sz += malval_size(rover->head, deep);
       }
       break;
+    case TYPE_MAP:
+      for (List *rover = val->data.map; rover; rover = rover->tail) {
+        sz += malval_size(rover->head, deep);
+      }
+      break;
+    case TYPE_VECTOR:
+      for (List *rover = val->data.vec; rover; rover = rover->tail) {
+        sz += malval_size(rover->head, deep);
+      }
+      break;
+    case TYPE_ATOM:
+      sz += malval_size(val->data.atom, deep);
+      break;
   }
 
   return sz;
@@ -123,6 +143,7 @@ void malval_reset_temp(MalVal *val, void *data)
     return;
 
   val->temp = 0;
+
   switch (val->type) {
     case TYPE_LIST:
       list_foreach(val->data.list, malval_reset_temp, data);
@@ -133,6 +154,9 @@ void malval_reset_temp(MalVal *val, void *data)
     case TYPE_MAP:
       list_foreach(val->data.map, malval_reset_temp, data);
       break;
+    case TYPE_ATOM:
+      val->data.atom->temp = 0;
+      break;
   }
 }
 
@@ -142,8 +166,10 @@ bool malval_equals(MalVal *a, MalVal *b)
 
     if (VAL_TYPE(a) == TYPE_LIST && VAL_TYPE(b) == TYPE_VECTOR)
       return list_equals(a->data.list, b->data.vec);
-    else if (VAL_TYPE(b) == TYPE_LIST && VAL_TYPE(a) == TYPE_VECTOR)
+
+    if (VAL_TYPE(b) == TYPE_LIST && VAL_TYPE(a) == TYPE_VECTOR)
       return list_equals(b->data.list, a->data.vec);
+
     return FALSE;
   }
 
@@ -166,6 +192,9 @@ bool malval_equals(MalVal *a, MalVal *b)
       return list_equals(a->data.vec, b->data.vec);
     case TYPE_MAP:
       return list_equals(a->data.map, b->data.map);
+
+    case TYPE_ATOM:
+      return malval_equals(a->data.atom, b->data.atom);
 
     default:
       err_warning(ERR_ARGUMENT_MISMATCH, "unknown type");
