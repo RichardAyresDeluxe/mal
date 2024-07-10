@@ -57,15 +57,6 @@ static struct Body *create_body(List *list)
   body->binds = list_acquire(lbinds);
   body->arity = nbinds;
   body->body = list->tail->head;
-  body->is_variadic = 0;
-
-  MalVal *last = list_last(body->binds);
-  if (last && last->data.string[0] == '&') {
-    body->is_variadic = 1;
-    /* lose the '&' in the symbol name */
-    unsigned c = strlen(last->data.string);
-    memmove(last->data.string, &last->data.string[1], c);
-  }
 
   return body;
 }
@@ -129,32 +120,6 @@ MalVal *function_create(List *body, ENV *env)
 
     /* make sure bodies are sorted by increasing arity */
     linked_list_sort_raw((void**)&func->fn.bodies, arity_comp, NULL);
-
-    /* count number of variadic bodies, should be 0 or 1 */
-    unsigned nvariadic = 0;
-    struct Body *last = NULL;
-    for (struct Body *b = func->fn.bodies; b; b = b->next) {
-      if (b->is_variadic)
-        nvariadic++;
-      if (last && b->arity == last->arity) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "every body must have unique arity");
-        function_destroy(func);
-        return NIL;
-      }
-      last = b;
-    }
-
-    if (nvariadic > 1) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "only 0 or 1 variadic bodies allowed");
-      function_destroy(func);
-      return NIL;
-    }
-    
-    // if (last && nvariadic == 1 && list_last(last->binds)->data.string[0] != '&') {
-    //   err_warning(ERR_ARGUMENT_MISMATCH, "variadic body must have highest arity");
-    //   function_destroy(func);
-    //   return NIL;
-    // }
   }
 
   return malval_function(func);
@@ -183,18 +148,15 @@ struct Body *function_find_body(Function *func, List *args)
 
   assert(!func->is_builtin);
 
-  for (struct Body *b = func->fn.bodies; b; b = b->next) {
-    if (b->arity == argc && !b->is_variadic) {
+  struct Body *b;
+  for (b = func->fn.bodies; b && b->next; b = b->next) {
+    if (b->arity > argc)
+      return NULL;
+    if (b->arity == argc)
       return b;
-    }
-    else if (b->is_variadic) {
-      /* If variadic, then we must be at the end, and all lower
-       * arity bodies have come before */
-      return b;
-    }
   }
 
-  return NULL;
+  return b;
 }
 
 ENV *function_bind(Function *func, List *args, struct Body **body)
@@ -204,23 +166,7 @@ ENV *function_bind(Function *func, List *args, struct Body **body)
     return NULL;
   }
 
-  if (!body[0]->is_variadic) {
-    return env_create(func->env, body[0]->binds, args);
-  }
-
-  /* variadic */
-  unsigned bindc = list_count(body[0]->binds);
-  List *p = NULL;
-  for (unsigned i = 0; i < (bindc-1); i++) {
-    p = cons(args->head, p);
-    args = args->tail;
-  }
-
-  p = cons(malval_list(args), p);
-  linked_list_reverse((void**)&p);
-  ENV *env = env_create(func->env, body[0]->binds, p);
-  list_release(p);
-  return env;
+  return env_create(func->env, body[0]->binds, args);
 }
 
 MalVal *apply(Function *func, List *args)

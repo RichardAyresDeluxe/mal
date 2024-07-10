@@ -21,6 +21,13 @@ ENV *env_create(ENV *parent, List *binds, List *values)
       err_warning(ERR_ARGUMENT_MISMATCH, "Cannot not bind non-symbol");
       continue;
     }
+
+    if (bind->head->data.string[0] == '&') {
+      /* variadic, so set to the remaining values and stop binding */
+      env_set(env, &bind->head->data.string[1], malval_list(value));
+      break;
+    }
+
     env_set(env, bind->head->data.string, value->head);
   }
 

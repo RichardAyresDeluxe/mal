@@ -9,13 +9,12 @@ typedef struct MalVal *(builtin_fn)(List *args, ENV *env);
 
 struct Body {
   struct Body *next;
-  uint8_t arity:7;
-  uint8_t is_variadic:1;
+  uint8_t arity;
   List *binds;
   MalVal *body;
 };
 
-#define MAX_ARITY ((1 << 7) - 1)
+#define MAX_ARITY ((1 << 8) - 1)
 
 struct Function {
   ENV *env;
