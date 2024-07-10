@@ -9,6 +9,7 @@
 #include "heap.h"
 #include "printer.h"
 #include "str.h"
+#include "gc.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -296,6 +297,14 @@ static MalVal *builtin_rest(List *args, ENV *env)
   return NIL;
 }
 
+static MalVal *builtin_gc(List *args, ENV *env)
+{
+  gc_mark_env(env, NULL);
+  gc_mark_list(args, NULL);
+  gc(TRUE, TRUE);
+  return NIL;
+}
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -318,6 +327,7 @@ struct ns core_ns[] = {
   {"str", builtin_str},
   {"prn", builtin_prn},
   {"println", builtin_println},
+  {"gc", builtin_gc},
   {NULL, NULL},
 };
 
