@@ -135,6 +135,112 @@ static MalVal *EVAL_fn_star(List *list, ENV *env)
   return function_create(list, env);
 }
 
+static void EVAL_do(List *list, ENV *env, MalVal **out)
+{
+  List *rover = list;
+  while (rover && rover->tail) {
+    MalVal *val = EVAL(rover->head, env);
+    malval_reset_temp(val, NULL);
+    rover = rover->tail;
+  }
+
+  *out = rover ? rover->head : NIL;
+}
+
+static void EVAL_if(List *list, ENV *env, MalVal **out)
+{
+  if (!list || !list->tail) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
+    *out = NIL;
+    return;
+  }
+
+  MalVal *val = EVAL(list->head, env);
+  if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
+    /* false */
+    *out = list->tail->tail ? list->tail->tail->head : NIL;
+  }
+  else {
+    /* true */
+    *out = list->tail->head;
+  }
+}
+
+static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
+{
+  if (list_count(list) != 2) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
+    *out = NIL;
+    return;
+  }
+
+  ENV *let = env_create(env, NULL, NULL);
+
+  if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
+    env_release(let);
+    *out = NIL;
+    return;
+  }
+
+  List *bindings = list->head->data.list;
+  if ((list_count(bindings) % 2) != 0) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
+    env_release(let);
+    *out = NIL;
+    return;
+  }
+
+  for (List *rover = bindings;
+       rover && rover->tail;
+       rover = rover->tail->tail)
+  {
+    if (rover->head->type != TYPE_SYMBOL) {
+      err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
+      env_release(let);
+      *out = NIL;
+      return;
+    }
+    env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
+  }
+
+  env_release(env);
+
+  *out = list->tail->head;
+  *envout = let;
+}
+
+static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **envout)
+{
+  /* 
+   * TCO mal function call
+   */
+  struct Body *b = function_find_body(fn, args);
+
+  if (!b->is_variadic) {
+    ENV *new_env = env_create(fn->env, b->binds, args);
+    *envout = new_env;
+    *out = b->body;
+    return;
+  }
+
+  /* variadic */
+  unsigned bindc = list_count(b->binds);
+  List *p = NULL;
+  for (unsigned i = 0; i < (bindc-1); i++) {
+    p = cons(args->head, p);
+    args = args->tail;
+  }
+
+  p = cons(malval_list(args), p);
+  linked_list_reverse((void**)&p);
+  ENV *new_env = env_create(fn->env, b->binds, p);
+  *envout = new_env;
+  list_release(p);
+
+  *out = b->body;
+}
+
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
   while (TRUE)
@@ -157,63 +263,12 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "let*") == 0
     ) {
-      // return EVAL_let(tail, env);
-      List *list = tail;
-
-      if (list_count(list) != 2) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "let* requires two arguments");
-        return NIL;
-      }
-
-      ENV *let = env_create(env, NULL, NULL);
-
-      if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
-        env_release(let);
-        return NIL;
-      }
-
-      List *bindings = list->head->data.list;
-      if ((list_count(bindings) % 2) != 0) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
-        env_release(let);
-        return NIL;
-      }
-
-      for (List *rover = bindings;
-           rover && rover->tail;
-           rover = rover->tail->tail)
-      {
-        if (rover->head->type != TYPE_SYMBOL) {
-          err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
-          env_release(let);
-          return NIL;
-        }
-        env_set(let, rover->head->data.string, EVAL(rover->tail->head, let));
-      }
-
-      env_release(env);
-
-      ast = list->tail->head;
-      env = let;
-
-      continue;
+      EVAL_let(tail, env, &ast, &env);
     }
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "do") == 0
     ) {
-      if (!tail) /* empty */
-        return NIL;
-
-      List *rover = tail;
-      while (rover && rover->tail) {
-        MalVal *val = EVAL(rover->head, env);
-        malval_reset_temp(val, NULL);
-        rover = rover->tail;
-      }
-
-      ast = rover->head;
-      continue;
+      EVAL_do(tail, env, &ast);
     }
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "fn*") == 0
@@ -223,25 +278,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "if") == 0
     ) {
-      if (!tail || !tail->tail) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "need at least 2 arguments to if");
-        return NIL;
-      }
-      MalVal *val = EVAL(tail->head, env);
-      if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
-        /* false */
-        if (tail->tail->tail) {
-          ast = tail->tail->tail->head;
-          continue;
-        }
-        else
-          return NIL;
-      }
-      else {
-        /* true */
-        ast = tail->tail->head;
-        continue;
-      }
+      EVAL_if(tail, env, &ast);
     }
     else {
       MalVal *f = eval_ast(ast, env);
@@ -261,39 +298,11 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       Function *fn = f->data.list->head->data.fn;
       List *args = f->data.list->tail;
 
-      if (fn->is_builtin)
+      if (fn->is_builtin) {
         return fn->fn.builtin(args, env);
-
-      /* 
-       * TCO mal function call
-       */
-      struct Body *b = function_find_body(fn, args);
-
-      if (!b->is_variadic) {
-        ENV *new_env = env_create(fn->env, b->binds, args);
-        // env_release(env);
-        env = new_env;
-        ast = b->body;
-        continue;
       }
 
-      /* variadic */
-      unsigned bindc = list_count(b->binds);
-      List *p = NULL;
-      for (unsigned i = 0; i < (bindc-1); i++) {
-        p = cons(args->head, p);
-        args = args->tail;
-      }
-
-      p = cons(malval_list(args), p);
-      linked_list_reverse((void**)&p);
-      ENV *new_env = env_create(fn->env, b->binds, p);
-      // env_release(env);
-      env = new_env;
-      list_release(p);
-
-      ast = b->body;
-      continue;
+      EVAL_call(fn, args, env, &ast, &env);
     }
 
     gc_mark(ast, NULL);
