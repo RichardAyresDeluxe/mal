@@ -126,10 +126,10 @@ static MalVal *builtin_apply(List *args, ENV *env)
     return NIL;
   }
   
-  List *all = args->head->data.list;
+  List *all = list_acquire(args->head->data.list);
 
   for (List *rover = args->tail; rover; rover = rover->tail)
-    all = cons(rover->head, all);
+    all = cons_weak(rover->head, all);
 
   MalVal *rv = apply(f->data.fn, all);
   list_release(all);
