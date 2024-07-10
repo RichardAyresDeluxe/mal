@@ -13,7 +13,9 @@ void map_remove(Map *, const char *key);
 
 /** returns NULL if not found */
 MalVal *map_find(Map *, const char *key);
-void map_foreach(Map *, MalValProc, void*);
+
+typedef void (*KeyValProc)(const char *key, MalVal *val, void *data);
+void map_foreach(Map *, KeyValProc, void*);
 
 void gc_mark_map(Map *, void*);
 

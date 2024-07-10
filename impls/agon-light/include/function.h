@@ -38,4 +38,10 @@ extern void function_gc_mark(Function*, void*);
 extern MalVal *apply(Function*, List*);
 extern struct Body *function_find_body(Function *func, List *args);
 
+/**
+ * Binds the given arguments to a function, returning a new environment
+ * and setting a body pointer
+ */
+extern ENV *function_bind(Function *func, List *args, struct Body **);
+
 #endif /* _FUNCTION_H */

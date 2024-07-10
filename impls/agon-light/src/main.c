@@ -15,6 +15,7 @@
 #include "function.h"
 #include "core.h"
 #include "eval.h"
+#include "map.h"
 
 
 ENV *repl_env = NULL;
@@ -215,30 +216,17 @@ static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **en
   /* 
    * TCO mal function call
    */
-  struct Body *b = function_find_body(fn, args);
-
-  if (!b->is_variadic) {
-    ENV *new_env = env_create(fn->env, b->binds, args);
-    *envout = new_env;
-    *out = b->body;
+  struct Body *b = NULL;
+  ENV *new_env = function_bind(fn, args, &b);
+  if (b == NULL) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
+    env_release(new_env);
+    *out = NIL;
     return;
   }
 
-  /* variadic */
-  unsigned bindc = list_count(b->binds);
-  List *p = NULL;
-  for (unsigned i = 0; i < (bindc-1); i++) {
-    p = cons(args->head, p);
-    args = args->tail;
-  }
-
-  p = cons(malval_list(args), p);
-  linked_list_reverse((void**)&p);
-  ENV *new_env = env_create(fn->env, b->binds, p);
-  *envout = new_env;
-  list_release(p);
-
   *out = b->body;
+  *envout = new_env;
 }
 
 MalVal *EVAL(MalVal *ast, ENV *env)
@@ -305,10 +293,10 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       EVAL_call(fn, args, env, &ast, &env);
     }
 
-    gc_mark(ast, NULL);
-    gc_mark_list(list, NULL);
-    gc_mark_env(env, NULL);
-    gc(FALSE, FALSE);
+    // gc_mark(ast, NULL);
+    // gc_mark_list(list, NULL);
+    // gc_mark_env(env, NULL);
+    // gc(FALSE, FALSE);
   }
 }
 
@@ -322,12 +310,12 @@ MalVal *READ(char *s)
   }
 }
 
-const char *PRINT(const MalVal *val)
+char *PRINT(const MalVal *val)
 {
   return pr_str(val ? val : NIL, TRUE);
 }
 
-const char *rep(ENV *repl_env, char *s)
+char *rep(ENV *repl_env, char *s)
 {
   return PRINT(EVAL(READ(s), repl_env));
 }
@@ -343,8 +331,10 @@ static void cleanup(void)
   gc(TRUE, TRUE);
 
   value_info(&count, &size);
-
   printf("\nValues remaining: %u (%u bytes)\n", count, size);
+
+  heap_info(&count, &size);
+  printf("Heap remainig: %u items (%u bytes)\n", count, size);
 }
 
 static void build_env(void)
@@ -387,17 +377,19 @@ int main(int argc, char **argv)
 
   char *s = strtok(init, "\f");
   do {
-    rep(repl_env, s);
+    char *out = rep(repl_env, s);
+    heap_free(out);
     s = strtok(NULL, "\f");
   } while(s);
 
   while (1) {
-    const char *s = rep(repl_env, NULL);
+    char *s = rep(repl_env, NULL);
     if (!s) {
       exit(0);
     }
     fputs(s, stdout);
     fputc('\n', stdout);
+    heap_free(s);
     // gc(FALSE, TRUE);
   }
 }

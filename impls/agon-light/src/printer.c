@@ -82,7 +82,7 @@ static char *pr_str_container(char pfx, char sfx, List *list, bool readable)
   unsigned len = 1;
 
   for (List *rover = list; rover; rover = rover->tail) {
-    const char *s2 = pr_str(rover->head, readable);
+    char *s2 = pr_str(rover->head, readable);
     unsigned newlen = len + strlen(s2) + 1;
     char *newstr = heap_malloc(newlen + 2);
 

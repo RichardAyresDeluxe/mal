@@ -57,6 +57,7 @@ static struct Body *create_body(List *list)
   body->binds = list_acquire(lbinds);
   body->arity = nbinds;
   body->body = list->tail->head;
+  body->is_variadic = 0;
 
   MalVal *last = list_last(body->binds);
   if (last && last->data.string[0] == '&') {
@@ -196,18 +197,49 @@ struct Body *function_find_body(Function *func, List *args)
   return NULL;
 }
 
+ENV *function_bind(Function *func, List *args, struct Body **body)
+{
+  *body = function_find_body(func, args);
+  if (!*body) {
+    return NULL;
+  }
+
+  if (!body[0]->is_variadic) {
+    return env_create(func->env, body[0]->binds, args);
+  }
+
+  /* variadic */
+  unsigned bindc = list_count(body[0]->binds);
+  List *p = NULL;
+  for (unsigned i = 0; i < (bindc-1); i++) {
+    p = cons(args->head, p);
+    args = args->tail;
+  }
+
+  p = cons(malval_list(args), p);
+  linked_list_reverse((void**)&p);
+  ENV *env = env_create(func->env, body[0]->binds, p);
+  list_release(p);
+  return env;
+}
+
 MalVal *apply(Function *func, List *args)
 {
   if (func->is_builtin)
     return func->fn.builtin(args, func->env);
 
-  struct Body *b = function_find_body(func, args);
+  struct Body *b = NULL;
+  ENV *env = function_bind(func, args, &b);
+
   if (b == NULL) {
     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
+    env_release(env);
     return NIL;
   }
 
-  MalVal *rv = EVAL(b->body, func->env);
+  MalVal *rv = EVAL(b->body, env);
+  env_release(env);
+
   return rv ? rv : NIL;
 }
 

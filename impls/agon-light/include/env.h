@@ -4,7 +4,12 @@
 #include "malval.h"
 #include "list.h"
 
-struct ENV;
+struct ENV {
+  struct Map *map;
+  unsigned ref_count;
+  struct ENV *parent;
+};
+
 typedef struct ENV ENV;
 
 ENV *env_create(ENV *parent, List *binds, List *exprs);

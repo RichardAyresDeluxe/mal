@@ -10,7 +10,7 @@
 
 struct entry {
   struct entry *next;
-  const char *key;
+  char *key;
   MalVal *value;
 };
 
@@ -86,16 +86,21 @@ MalVal *map_find(Map *map, const char *key)
   return NULL;
 }
 
-void gc_mark_map(struct Map *map, void *data)
+static void gc_mark_entry(const char *key, MalVal *val, void *data)
 {
-  map_foreach(map, gc_mark, data);
+  gc_mark(val, data);
 }
 
-void map_foreach(Map *map, MalValProc p, void *data)
+void gc_mark_map(struct Map *map, void *data)
+{
+  map_foreach(map, gc_mark_entry, data);
+}
+
+void map_foreach(Map *map, KeyValProc p, void *data)
 {
   for (unsigned idx = 0; idx < map->table_size; idx++) {
     for (struct entry *entry = map->table[idx]; entry; entry = entry->next) {
-      p(entry->value, data);
+      p(entry->key, entry->value, data);
     }
   }
 }
