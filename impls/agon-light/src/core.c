@@ -10,6 +10,8 @@
 #include "printer.h"
 #include "str.h"
 #include "gc.h"
+#include "reader.h"
+#include "eval.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -305,6 +307,42 @@ static MalVal *builtin_gc(List *args, ENV *env)
   return NIL;
 }
 
+static MalVal *builtin_read_string(List *args, ENV *env)
+{
+  if (!args || VAL_TYPE(args->head) != TYPE_STRING) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "not a string input");
+    return NIL;
+  }
+  return read_string(args->head->data.string);
+}
+
+static MalVal *builtin_slurp(List *args, ENV *env)
+{
+  if (!args || VAL_TYPE(args->head) != TYPE_STRING) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "not a file name input");
+    return NIL;
+  }
+
+  /* TODO: AGON VERSION */
+  char *s = NULL;
+  FILE *fh = fopen(args->head->data.string, "r");
+  if (!fh) {
+    err_warning(ERR_FILE_ERROR, "cannot open file");
+    return NIL;
+  }
+  char buf[80];
+  while (!feof(fh)) {
+    buf[0] = '\0';
+    fgets(buf, sizeof(buf)-1, fh);
+    catstr(&s, buf);
+  }
+  fclose(fh);
+
+  MalVal *rv = malval_string(s);
+  heap_free(s);
+  return rv;
+}
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -328,6 +366,8 @@ struct ns core_ns[] = {
   {"prn", builtin_prn},
   {"println", builtin_println},
   {"gc", builtin_gc},
+  {"read-string", builtin_read_string},
+  {"slurp", builtin_slurp},
   {NULL, NULL},
 };
 

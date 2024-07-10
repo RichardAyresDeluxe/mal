@@ -57,7 +57,7 @@ char *pr_str(const MalVal *val, bool readable)
         char *s = strdup("#<function> ");
         struct Body *body = f->fn.bodies;
         while (body) {
-          char *b = pr_str(body->body, FALSE);
+          char *b = pr_str(body->body, TRUE);
           catstr(&s, b);
           catstr(&s, "\n");
           heap_free(b);

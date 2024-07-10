@@ -15,7 +15,7 @@
 #include "function.h"
 #include "core.h"
 #include "eval.h"
-#include "map.h"
+#include "function.h"
 
 
 ENV *repl_env = NULL;
@@ -357,6 +357,16 @@ static void cleanup(void)
   printf("Heap remainig: %u items (%u bytes)\n", count, size);
 }
 
+static MalVal *builtin_eval(List *args, ENV *ignored)
+{
+  if (!args) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "need one argument");
+    return NIL;
+  }
+
+  return EVAL(args->head, repl_env);
+}
+
 static void build_env(void)
 {
   repl_env = env_create(NULL, NULL, NULL);
@@ -368,6 +378,7 @@ static void build_env(void)
   env_set(repl_env, "nil", NIL);
   env_set(repl_env, "true", T);
   env_set(repl_env, "false", F);
+  env_set(repl_env, "eval", function_create_builtin(builtin_eval));
 }
 
 /* init mal code, separated by \f */
@@ -387,7 +398,9 @@ char init[] = "\
 (def! map\n\
   (fn* ([f xs]\n\
         (if (not (empty? xs))\n\
-          (cons (f (first xs)) (map f (rest xs)))))))";
+          (cons (f (first xs)) (map f (rest xs)))))))\f\
+(def! load-file\n\
+  (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\")))))";
 
 int main(int argc, char **argv)
 {
