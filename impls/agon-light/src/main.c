@@ -14,12 +14,10 @@
 #include "heap.h"
 #include "function.h"
 #include "core.h"
-#include "str.h"
+#include "eval.h"
+
 
 ENV *repl_env = NULL;
-
-/** This can return NULL */
-MalVal *EVAL(MalVal *ast, ENV *env);
 
 static void warn_symbol_not_found(const char *name)
 {

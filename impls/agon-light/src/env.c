@@ -12,22 +12,22 @@ struct ENV {
   ENV *parent;
 };
 
-static void env_destroy(ENV *env, bool delete_parent);
+static void env_destroy(ENV *env);
 
-ENV *env_create(ENV *parent, List *binds, List *exprs)
+ENV *env_create(ENV *parent, List *binds, List *values)
 {
   ENV *env = heap_malloc(sizeof(ENV));
   env->map = map_create();
   env->ref_count = 1;
   env->parent = env_acquire(parent);
   
-  List *bind, *expr;
-  for (bind = binds, expr = exprs; bind && expr; bind = bind->tail, expr = expr->tail) {
+  List *bind, *value;
+  for (bind = binds, value = values; bind && value; bind = bind->tail, value = value->tail) {
     if (bind->head->type != TYPE_SYMBOL) {
       err_warning(ERR_ARGUMENT_MISMATCH, "Cannot not bind non-symbol");
       continue;
     }
-    env_set(env, bind->head->data.string, expr->head);
+    env_set(env, bind->head->data.string, value->head);
   }
 
   return env;
@@ -43,18 +43,17 @@ ENV *env_acquire(ENV *env)
 void env_release(ENV *env)
 {
   if (env && env->ref_count-- == 1) {
-    env_destroy(env, TRUE);
+    env_destroy(env);
   }
 }
 
-void env_destroy(ENV *env, bool delete_parent)
+void env_destroy(ENV *env)
 {
   if (!env)
     return;
 
   map_destroy(env->map);
-  if (delete_parent)
-    env_release(env->parent);
+  env_release(env->parent);
 }
 
 void env_set(ENV *env, const char *key, MalVal *val)

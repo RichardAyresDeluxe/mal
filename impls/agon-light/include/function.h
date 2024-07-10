@@ -15,6 +15,8 @@ struct Body {
   MalVal *body;
 };
 
+#define MAX_ARITY ((1 << 7) - 1)
+
 struct Function {
   ENV *env;
   uint8_t is_macro:1;
@@ -33,7 +35,6 @@ extern void function_destroy(Function*);
 
 extern void function_gc_mark(Function*, void*);
 
-extern bool function_is_builtin(Function*);
 extern MalVal *apply(Function*, List*);
 extern struct Body *function_find_body(Function *func, List *args);
 

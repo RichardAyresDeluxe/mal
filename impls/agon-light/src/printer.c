@@ -7,10 +7,6 @@
 #include "str.h"
 #include "function.h"
 
-
-static char *pr_str_list(List *list, bool readable);
-static char *pr_str_vector(List *list, bool readable);
-static char *pr_str_map(List *list, bool readable);
 static char *pr_str_readable(const char *);
 
 char *pr_str(const MalVal *val, bool readable)

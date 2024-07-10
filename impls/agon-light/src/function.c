@@ -4,7 +4,7 @@
 #include "err.h"
 #include "listsort.h"
 #include "gc.h"
-#include "printer.h"
+#include "eval.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -46,11 +46,17 @@ static struct Body *create_body(List *list)
     }
   }
 
+  unsigned nbinds = list_count(lbinds);
+  if (nbinds > MAX_ARITY) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "function arity too high");
+    return NULL;
+  }
+
   struct Body *body = heap_malloc(sizeof(struct Body));
   body->next = NULL;
   body->binds = list_acquire(lbinds);
-  body->arity = list_count(body->binds);
-  body->body = malval_list(list->tail);
+  body->arity = nbinds;
+  body->body = list->tail->head;
 
   MalVal *last = list_last(body->binds);
   if (last && last->data.string[0] == '&') {
@@ -174,32 +180,17 @@ struct Body *function_find_body(Function *func, List *args)
 {
   unsigned argc = list_count(args);
 
-  struct Body *b = func->fn.bodies;
+  assert(!func->is_builtin);
 
-  while(b) {
+  for (struct Body *b = func->fn.bodies; b; b = b->next) {
     if (b->arity == argc && !b->is_variadic) {
       return b;
     }
-    else if (/*b->arity <= argc &&*/ b->is_variadic) {
+    else if (b->is_variadic) {
+      /* If variadic, then we must be at the end, and all lower
+       * arity bodies have come before */
       return b;
-
-      /*
-      unsigned bindc = list_count(b->binds);
-      List *p = NULL;
-      for (unsigned i = 0; i < (bindc-1); i++) {
-        p = cons(args->head, p);
-        args = args->tail;
-      }
-
-      p = cons(malval_list(args), p);
-      linked_list_reverse((void**)&p);
-      env = env_create(func->env, b->binds, p);
-      list_release(p);
-      break;
-      */
     }
-
-    b = b->next;
   }
 
   return NULL;
@@ -210,44 +201,13 @@ MalVal *apply(Function *func, List *args)
   if (func->is_builtin)
     return func->fn.builtin(args, func->env);
 
-  MalVal *rv = NULL;
-  unsigned argc = list_count(args);
-  ENV *env = NULL;
-
-  struct Body *b = func->fn.bodies;
-  while(b) {
-    if (b->arity == argc && !b->is_variadic) {
-      env = env_create(func->env, b->binds, args);
-      break;
-    }
-    else if (/*b->arity <= argc &&*/ b->is_variadic) {
-      unsigned bindc = list_count(b->binds);
-      List *p = NULL;
-      for (unsigned i = 0; i < (bindc-1); i++) {
-        p = cons(args->head, p);
-        args = args->tail;
-      }
-
-      p = cons(malval_list(args), p);
-      linked_list_reverse((void**)&p);
-      env = env_create(func->env, b->binds, p);
-      list_release(p);
-      break;
-    }
-
-    b = b->next;
-  }
-
+  struct Body *b = function_find_body(func, args);
   if (b == NULL) {
     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
     return NIL;
   }
 
-  rv = eval_ast(b->body, env);
-  assert(VAL_TYPE(rv) == TYPE_LIST);
-  rv = rv->data.list->head;
-  env_release(env);
-
+  MalVal *rv = EVAL(b->body, func->env);
   return rv ? rv : NIL;
 }
 
@@ -262,9 +222,4 @@ void function_gc_mark(Function *fn, void *data)
     gc_mark_list(body->binds, data);
     gc_mark(body->body, data);
   }
-}
-
-bool function_is_builtin(Function *fn)
-{
-  return fn->is_builtin;
 }
