@@ -212,35 +212,44 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
   env_release(env);
 
   *out = list->tail->head;
+  env_release(*envout);
   *envout = let;
 }
 
-// static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **envout)
-// {
-//   /* 
-//    * TCO mal function call
-//    */
-//   struct Body *b = NULL;
-//   ENV *new_env = function_bind(fn, args, &b);
-//   if (b == NULL) {
-//     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
-//     env_release(new_env);
-//     *out = NIL;
-//     return;
-//   }
-//
-//   *out = b->body;
-//   *envout = new_env;
-// }
+static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **envout)
+{
+  /*
+   * TCO mal function call
+   */
+  struct Body *b = NULL;
+  ENV *new_env = function_bind(fn, args, &b);
+  if (b == NULL) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
+    env_release(new_env);
+    *out = NIL;
+    return;
+  }
+
+  *out = b->body;
+  env_release(*envout);
+  *envout = new_env;
+}
 
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
+  env_acquire(env);
+
   while (TRUE)
   {
-    if (ast->type != TYPE_LIST)
-      return eval_ast(ast, env);
-    if (ast->data.list == NULL)
+    if (ast->type != TYPE_LIST) {
+      MalVal *rv = eval_ast(ast, env);
+      env_release(env);
+      return rv;
+    }
+    if (ast->data.list == NULL) {
+      env_release(env);
       return ast; /* empty list */
+    }
 
     List *list = ast->data.list;
 
@@ -250,7 +259,9 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     if (head->type == TYPE_SYMBOL
      && strcmp(head->data.string, "def!") == 0
     ) {
-      return EVAL_def(tail, env);
+      MalVal *rv = EVAL_def(tail, env);
+      env_release(env);
+      return rv;
     }
     else if (head->type == TYPE_SYMBOL
           && strcmp(head->data.string, "let*") == 0
@@ -290,19 +301,19 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       Function *fn = f->data.list->head->data.fn;
       List *args = f->data.list->tail;
 
-      return apply(fn, args);
+      if (fn->is_builtin) {
+        MalVal *rv = fn->fn.builtin(args, env);
+        env_release(env);
+        return rv;
+      }
 
-      // if (fn->is_builtin) {
-      //   return fn->fn.builtin(args, env);
-      // }
-      //
-      // EVAL_call(fn, args, env, &ast, &env);
+      EVAL_call(fn, args, env, &ast, &env);
     }
 
-    // gc_mark(ast, NULL);
-    // gc_mark_list(list, NULL);
-    // gc_mark_env(env, NULL);
-    // gc(FALSE, FALSE);
+    gc_mark(ast, NULL);
+    gc_mark_list(list, NULL);
+    gc_mark_env(env, NULL);
+    gc(FALSE, FALSE);
   }
 }
 
@@ -316,7 +327,7 @@ MalVal *READ(char *s)
   }
 }
 
-char *PRINT(const MalVal *val)
+char *PRINT(MalVal *val)
 {
   return pr_str(val ? val : NIL, TRUE);
 }
