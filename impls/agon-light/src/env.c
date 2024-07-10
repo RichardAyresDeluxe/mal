@@ -31,6 +31,11 @@ ENV *env_create(ENV *parent, List *binds, List *values)
     env_set(env, bind->head->data.string, value->head);
   }
 
+  if (bind && !value && bind->head->data.string[0] == '&') {
+    /* have a variadic binding, but no more values - make empty list */
+    env_set(env, &bind->head->data.string[1], malval_list(NULL));
+  }
+
   return env;
 }
 

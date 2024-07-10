@@ -154,8 +154,12 @@ struct Body *function_find_body(Function *func, List *args)
       break;
   }
 
-  if (b->arity > argc)
-    return NULL;
+  if (b->arity > argc) {
+    MalVal *last = list_last(b->binds);
+    assert(VAL_TYPE(last) == TYPE_SYMBOL);
+    if (last->data.string[0] != '&')
+      return NULL;
+  }
 
   return b;
 }
