@@ -12,6 +12,10 @@ typedef struct List {
 } List;
 
 extern List *cons(MalVal*, List*);
+
+/** Like cons, but don't increase the tail's ref_count */
+extern List *cons_weak(MalVal*, List*);
+
 static inline List *list_acquire(List *l) {
   if (l)
     l->ref_count++;

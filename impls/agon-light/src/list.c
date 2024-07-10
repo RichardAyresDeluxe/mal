@@ -1,13 +1,18 @@
 #include "list.h"
 #include "heap.h"
 
-List *cons(MalVal *val, List *list)
+List *cons_weak(MalVal *val, List *list)
 {
   List *c = heap_malloc(sizeof(List));
   c->ref_count = 1;
   c->head = val ? val : NIL;
-  c->tail = list_acquire(list);
+  c->tail = list;
   return c;
+}
+
+List *cons(MalVal *val, List *list)
+{
+  return cons_weak(val, list_acquire(list));
 }
 
 static void list_free(List *list)

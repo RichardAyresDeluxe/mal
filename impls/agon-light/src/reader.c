@@ -149,16 +149,16 @@ MalVal *read_list(lex_token_t *token, lex_token_t **next)
   lex_token_t *rover = token;
 
   while (rover && !TOKEN_IS_END(rover)) {
-    list = cons(read_form(rover, &rover), list);
+    list = cons_weak(read_form(rover, &rover), list);
   }
 
   *next = rover ? rover->next : NULL;
 
   linked_list_reverse((void**)&list);
 
-  MalVal *val = malval_create(TYPE_LIST);
-  val->data.list = list;
-  return val;
+  MalVal *rv = malval_list(list);
+  list_release(list);
+  return rv;
 }
 
 MalVal *read_vector(lex_token_t *token, lex_token_t **next)
