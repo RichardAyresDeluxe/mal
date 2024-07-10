@@ -48,6 +48,10 @@ step4_if_fn_do: $(OBJDIR)/mal
 	@rm -f $@
 	@ln -s $< $@
 
+step5_tco: $(OBJDIR)/mal
+	@rm -f $@
+	@ln -s $< $@
+
 .PHONY: all clean tags
 
 ifneq ($(wildcard $(OBJDIR)/*.d), )

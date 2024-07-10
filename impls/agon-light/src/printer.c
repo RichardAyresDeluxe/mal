@@ -5,6 +5,7 @@
 #include "itoa.h"
 #include "printer.h"
 #include "str.h"
+#include "function.h"
 
 
 static char *pr_str_list(List *list, bool readable);
@@ -52,7 +53,25 @@ char *pr_str(const MalVal *val, bool readable)
     case TYPE_BOOL:
       return strdup(val->data.bool ? "true" : "false");
 
-    case TYPE_FUNCTION:
+    case TYPE_FUNCTION: {
+      Function *f = val->data.fn;
+      if (f->is_builtin) {
+        return strdup("#<builtin>");
+      } else {
+        char *s = strdup("#<function> ");
+        struct Body *body = f->fn.bodies;
+        while (body) {
+          char *b = pr_str(body->body, FALSE);
+          catstr(&s, b);
+          catstr(&s, "\n");
+          heap_free(b);
+          body = body->next;
+        }
+
+        return s;
+      }
+    }
+
       return strdup("#<function>");
   }
 

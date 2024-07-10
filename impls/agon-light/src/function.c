@@ -12,24 +12,6 @@
 
 extern MalVal *eval_ast(MalVal *ast, ENV *env);
 
-struct Body {
-  struct Body *next;
-  uint8_t arity:7;
-  uint8_t is_variadic:1;
-  List *binds;
-  MalVal *body;
-};
-
-struct Function {
-  ENV *env;
-  uint8_t is_macro:1;
-  uint8_t is_builtin:1;
-  union {
-    builtin_fn *builtin;
-    struct Body *bodies;
-  } fn;
-};
-
 MalVal *function_create_builtin(builtin_fn *fn)
 {
   Function *func = heap_malloc(sizeof(Function));
@@ -188,6 +170,41 @@ void function_destroy(Function *func)
   heap_free(func);
 }
 
+struct Body *function_find_body(Function *func, List *args)
+{
+  unsigned argc = list_count(args);
+
+  struct Body *b = func->fn.bodies;
+
+  while(b) {
+    if (b->arity == argc && !b->is_variadic) {
+      return b;
+    }
+    else if (/*b->arity <= argc &&*/ b->is_variadic) {
+      return b;
+
+      /*
+      unsigned bindc = list_count(b->binds);
+      List *p = NULL;
+      for (unsigned i = 0; i < (bindc-1); i++) {
+        p = cons(args->head, p);
+        args = args->tail;
+      }
+
+      p = cons(malval_list(args), p);
+      linked_list_reverse((void**)&p);
+      env = env_create(func->env, b->binds, p);
+      list_release(p);
+      break;
+      */
+    }
+
+    b = b->next;
+  }
+
+  return NULL;
+}
+
 MalVal *apply(Function *func, List *args)
 {
   if (func->is_builtin)
@@ -245,4 +262,9 @@ void function_gc_mark(Function *fn, void *data)
     gc_mark_list(body->binds, data);
     gc_mark(body->body, data);
   }
+}
+
+bool function_is_builtin(Function *fn)
+{
+  return fn->is_builtin;
 }

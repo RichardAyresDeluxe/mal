@@ -257,19 +257,51 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       if (VAL_IS_NIL(f->data.list->head))
         return NULL;
 
-      if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "not a function");
-        return NIL;
+      if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION)
+        return f->data.list->head;
+
+      Function *fn = f->data.list->head->data.fn;
+      List *args = f->data.list->tail;
+
+      if (fn->is_builtin)
+        return fn->fn.builtin(args, env);
+
+      /* 
+       * TCO mal function call
+       */
+      struct Body *b = function_find_body(fn, args);
+
+      if (!b->is_variadic) {
+        ENV *new_env = env_create(fn->env, b->binds, args);
+        // env_release(env);
+        env = new_env;
+        ast = b->body;
+        continue;
       }
 
-      return apply(f->data.list->head->data.fn, f->data.list->tail);
+      /* variadic */
+      unsigned bindc = list_count(b->binds);
+      List *p = NULL;
+      for (unsigned i = 0; i < (bindc-1); i++) {
+        p = cons(args->head, p);
+        args = args->tail;
+      }
+
+      p = cons(malval_list(args), p);
+      linked_list_reverse((void**)&p);
+      ENV *new_env = env_create(fn->env, b->binds, p);
+      // env_release(env);
+      env = new_env;
+      list_release(p);
+
+      ast = b->body;
+      continue;
     }
 
-    // gc_mark(ast, NULL);
-    // gc_mark_list(list, NULL);
-    // gc_mark_env(env, NULL);
-    // gc_mark(result, NULL);
-    // gc(FALSE, FALSE);
+    gc_mark(ast, NULL);
+    gc_mark_list(list, NULL);
+    gc_mark_env(env, NULL);
+    gc(FALSE, FALSE);
   }
 }
 
