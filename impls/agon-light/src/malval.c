@@ -82,6 +82,12 @@ void malval_free(MalVal *val)
     case TYPE_SYMBOL:
       heap_free(val->data.string);
       break;
+    case TYPE_MAP:
+      list_release(val->data.map);
+      break;
+    case TYPE_VECTOR:
+      list_release(val->data.vec);
+      break;
     case TYPE_LIST:
       list_release(val->data.list);
       break;
