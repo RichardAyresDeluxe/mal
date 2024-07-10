@@ -71,7 +71,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   {
     List *evaluated = NULL;
     for (List *rover = ast->data.list; rover; rover = rover->tail) {
-      evaluated = cons(EVAL(rover->head, env), evaluated);
+      evaluated = cons_weak(EVAL(rover->head, env), evaluated);
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_list(evaluated);
@@ -83,7 +83,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   {
     List *evaluated = NULL;
     for (List *rover = ast->data.list; rover; rover = rover->tail) {
-      evaluated = cons(EVAL(rover->head, env), evaluated);
+      evaluated = cons_weak(EVAL(rover->head, env), evaluated);
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_vector(evaluated);
@@ -96,10 +96,14 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
     List *evaluated = NULL;
     unsigned i = 0;
     for (List *rover = ast->data.list; rover; rover = rover->tail) {
-      if ((i++ % 2) == 1)
-        evaluated = cons(EVAL(rover->head, env), evaluated);
-      else
-        evaluated = cons(rover->head, evaluated);
+      if ((i++ % 2) == 0) {
+        /* even - a key, don't evaluate */
+        evaluated = cons_weak(rover->head, evaluated);
+      }
+      else {
+        /* odd - a value, evaluate */
+        evaluated = cons_weak(EVAL(rover->head, env), evaluated);
+      }
     }
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_map(evaluated);
