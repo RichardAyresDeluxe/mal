@@ -236,6 +236,51 @@ static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **en
   *envout = new_env;
 }
 
+MalVal *EVAL_quasiquote(MalVal *ast)
+{
+  if (VAL_TYPE(ast) == TYPE_LIST
+   && !list_is_empty(ast->data.list)
+   && VAL_TYPE(ast->data.list->head) == TYPE_SYMBOL
+   && strcmp(ast->data.list->head->data.string, "unquote") == 0)
+  {
+    /*   - If `ast` is a list starting with the "unquote" symbol, return its
+     *       second element. */
+    return ast->data.list->tail->head;
+  }
+
+  if (VAL_TYPE(ast) == TYPE_LIST) {
+    List *result = NULL;
+
+    linked_list_reverse((void**)&ast->data.list);
+
+    for (List *elt = ast->data.list; elt; elt = elt->tail) {
+      if (VAL_TYPE(elt->head) == TYPE_LIST
+       && !list_is_empty(elt->head->data.list)
+       && VAL_TYPE(elt->head->data.list->head) == TYPE_SYMBOL
+       && strcmp(elt->head->data.list->head->data.string, "splice-unquote") == 0
+      ) {
+        result = cons_weak(malval_symbol("concat"),
+                           cons_weak(elt->head->data.list->tail->head,
+                                     cons_weak(malval_list(result), NULL)));
+      }
+      else {
+        result = cons_weak(malval_symbol("cons"),
+                           cons_weak(EVAL_quasiquote(elt->head),
+                                     cons_weak(malval_list(result), NULL)));
+      }
+    }
+
+    return malval_list(result);
+  }
+
+  if (VAL_TYPE(ast) == TYPE_MAP || VAL_TYPE(ast) == TYPE_SYMBOL) {
+    return malval_list(cons_weak(malval_symbol("quote"),
+                                 cons_weak(ast, NULL)));
+  }
+
+  return ast;
+}
+
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
   env_acquire(env);
@@ -259,28 +304,41 @@ MalVal *EVAL(MalVal *ast, ENV *env)
 
     if (head->type == TYPE_SYMBOL) {
       /* check for special forms */
-      if (strcmp(head->data.string, "def!") == 0) {
-        MalVal *rv = EVAL_def(tail, env);
-        env_release(env);
-        return rv;
+      const char *symbol = head->data.string;
+      if (symbol[0] == 'd') {
+        if (strcmp(symbol, "def!") == 0) {
+          MalVal *rv = EVAL_def(tail, env);
+          env_release(env);
+          return rv;
+        }
+        if (strcmp(symbol, "do") == 0) {
+          EVAL_do(tail, env, &ast);
+          continue;
+        }
       }
-      if (strcmp(head->data.string, "let*") == 0) {
+      if (symbol[0] == 'q') {
+        if (strcmp(symbol, "quote") == 0) {
+          env_release(env);
+          return tail->head;
+        }
+        if (strcmp(symbol, "quasiquote") == 0) {
+          ast = EVAL_quasiquote(tail->head);
+          continue;
+        }
+        if (strcmp(symbol, "quasiquoteexpand") == 0) {
+          return EVAL_quasiquote(tail->head);
+        }
+      }
+      if (strcmp(symbol, "let*") == 0) {
         EVAL_let(tail, env, &ast, &env);
         continue;
       }
-      if (strcmp(head->data.string, "do") == 0) {
-        EVAL_do(tail, env, &ast);
-        continue;
-      }
-      if (strcmp(head->data.string, "fn*") == 0) {
+      if (strcmp(symbol, "fn*") == 0) {
         return EVAL_fn_star(tail, env);
       }
-      if (strcmp(head->data.string, "if") == 0) {
+      if (strcmp(symbol, "if") == 0) {
         EVAL_if(tail, env, &ast);
         continue;
-      }
-      if (strcmp(head->data.string, "quote") == 0) {
-        return tail->head;
       }
     }
 

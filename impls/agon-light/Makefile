@@ -56,6 +56,10 @@ step6_file: $(OBJDIR)/mal
 	@rm -f $@
 	@ln -s $< $@
 
+step7_quote: $(OBJDIR)/mal
+	@rm -f $@
+	@ln -s $< $@
+
 .PHONY: all clean tags
 
 ifneq ($(wildcard $(OBJDIR)/*.d), )
