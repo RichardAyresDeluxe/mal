@@ -442,6 +442,21 @@ static MalVal *builtin_rest(List *args, ENV *env)
   return NIL;
 }
 
+static MalVal *builtin_reverse(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_container))
+    return NIL;
+
+  List *result = NULL;
+  for (List *input = list_from_container(args->head); input; input = input->tail) {
+    result = cons_weak(input->head, result);
+  }
+
+  MalVal *rv = malval_list(result);
+  list_release(result);
+  return rv;
+}
+
 static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
 static MalVal *builtin_map(List *args, ENV *env)
 {
@@ -575,6 +590,7 @@ struct ns core_ns[] = {
   {"vec", builtin_vec},
   {"first", builtin_first},
   {"rest", builtin_rest},
+  {"reverse", builtin_reverse},
   {"map", builtin_map},
   {"list", builtin_list},
   {"list?", builtin_is_list},
