@@ -238,6 +238,33 @@ static MalVal *builtin_cons(List *args, ENV *env)
   return malval_list(list);
 }
 
+static MalType types_container[] = {
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER, 0};
+static MalVal *builtin_concat(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 0, ARGS_MAX, types_container))
+    return NIL;
+
+  List *result = NULL;
+  while (args) {
+    List *list = list_from_container(args->head);
+    List *tmp = list_concat(result, list);
+    list_release(result);
+    list_release(list);
+    result = tmp;
+
+    args = args->tail;
+  }
+
+  MalVal *rv = malval_list(result);
+  list_release(result);
+  return rv;
+}
+
 static MalVal *builtin_is_list(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
@@ -366,7 +393,6 @@ static MalVal *builtin_println(List *args, ENV *env)
   return NIL;
 }
 
-static MalType types_container[] = {METATYPE_CONTAINER, 0};
 static MalVal *builtin_first(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, ARGS_MAX, types_container))
@@ -510,6 +536,7 @@ struct ns core_ns[] = {
   {">=", morethan_or_equal},
   {"apply", builtin_apply},
   {"cons", builtin_cons},
+  {"concat", builtin_concat},
   {"first", builtin_first},
   {"rest", builtin_rest},
   {"list", builtin_list},

@@ -1,5 +1,6 @@
 #include "list.h"
 #include "heap.h"
+#include "listsort.h"
 
 List *cons_weak(MalVal *val, List *list)
 {
@@ -88,4 +89,35 @@ bool list_forall(List *list, predicate p, void *data)
       return FALSE;
   }
   return TRUE;
+}
+
+List *list_from_container(MalVal *val)
+{
+  switch(val->type) {
+    case TYPE_LIST:
+      return list_acquire(val->data.list);
+    case TYPE_VECTOR:
+      return list_acquire(val->data.vec);
+  }
+  return NULL;
+}
+
+/* returns a new list */
+List *list_concat(List *a, List *b)
+{
+  List *result = NULL;
+
+  while (a) {
+    result = cons_weak(a->head, result);
+    a = a->tail;
+  }
+
+  while (b) {
+    result = cons_weak(b->head, result);
+    b = b->tail;
+  }
+
+  linked_list_reverse((void**)&result);
+
+  return result;
 }

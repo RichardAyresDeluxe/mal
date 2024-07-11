@@ -37,4 +37,9 @@ static inline bool list_is_empty(List *l) {
   return l == NULL;
 }
 
+extern List *list_from_container(MalVal*);
+
+/* returns a new list */
+extern List *list_concat(List *, List *);
+
 #endif /* _list_H */
