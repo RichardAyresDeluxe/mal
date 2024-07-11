@@ -442,6 +442,26 @@ static MalVal *builtin_rest(List *args, ENV *env)
   return NIL;
 }
 
+static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
+static MalVal *builtin_map(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_map))
+    return NIL;
+
+  List *result = NULL;
+  Function *f = args->head->data.fn;
+  List *input = list_from_container(args->tail->head);
+  for (; input; input = input->tail) {
+    List a = {NULL, 1, input->head};
+    result = cons_weak(apply(f, &a), result);
+  }
+
+  linked_list_reverse((void**)&result);
+  MalVal *rv = malval_list(result);
+  list_release(result);
+  return rv;
+}
+
 static MalVal *builtin_gc(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, 0, NULL))
@@ -555,6 +575,7 @@ struct ns core_ns[] = {
   {"vec", builtin_vec},
   {"first", builtin_first},
   {"rest", builtin_rest},
+  {"map", builtin_map},
   {"list", builtin_list},
   {"list?", builtin_is_list},
   {"empty?", builtin_is_empty},

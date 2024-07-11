@@ -470,10 +470,6 @@ char init[] = "\
 (def! reduce \n\
   (fn* ([f val xs] (if (empty? xs) val (reduce f (f val (first xs)) (rest xs))))\n\
        ([f xs] (reduce f (first xs) (rest xs)))))\f\
-(def! map\n\
-  (fn* ([f xs]\n\
-        (if (not (empty? xs))\n\
-          (cons (f (first xs)) (map f (rest xs)))))))\f\
 (def! load-file\n\
   (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\")))))";
 
