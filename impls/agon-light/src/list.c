@@ -97,7 +97,7 @@ List *list_from_container(MalVal *val)
     case TYPE_LIST:
       return list_acquire(val->data.list);
     case TYPE_VECTOR:
-      return list_acquire(val->data.vec);
+      return list_duplicate(val->data.vec);
   }
   return NULL;
 }
@@ -119,5 +119,16 @@ List *list_concat(List *a, List *b)
 
   linked_list_reverse((void**)&result);
 
+  return result;
+}
+
+List *list_duplicate(List *list)
+{
+  List *result = NULL;
+  while(list) {
+    result = cons_weak(list->head, result);
+    list = list->tail;
+  }
+  linked_list_reverse((void**)&result);
   return result;
 }

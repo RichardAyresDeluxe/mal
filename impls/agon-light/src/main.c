@@ -64,8 +64,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
     if (value)
       return value;
 
-    warn_symbol_not_found(ast->data.string);
-    return NULL;
+    return ast;
   }
 
   if (ast->type == TYPE_LIST)
@@ -127,13 +126,73 @@ static MalVal *EVAL_def(List *list, ENV *env)
 
   MalVal *value = EVAL(list->tail->head, env);
   if (!value) {
-    warn_symbol_not_found(name);
+    // warn_symbol_not_found(name);
     return NIL;
   }
 
   env_set(env, name, value);
 
   return value;
+}
+
+static MalVal *EVAL_defmacro(List *list, ENV *env)
+{
+  if (list_count(list) != 2) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "defmacro! requires two arguments");
+    return NIL;
+  }
+
+  const char *name = list->head->data.string;
+
+  MalVal *value = EVAL(list->tail->head, env);
+  if (!value) {
+    warn_symbol_not_found(name);
+    return NIL;
+  }
+
+  if (VAL_TYPE(value) != TYPE_FUNCTION) {
+    malval_reset_temp(value, NULL);
+    err_warning(ERR_ARGUMENT_MISMATCH, "not a function in defmacro!");
+    return NIL;
+  }
+
+  value->data.fn->is_macro = 1;
+
+  env_set(env, name, value);
+
+  return value;
+}
+
+/* Returns the function if this is a macro call, otherwise NULL */
+static Function *is_macro_call(MalVal *ast, ENV *env)
+{
+  if (VAL_TYPE(ast) != TYPE_LIST)
+    return NULL;
+
+  if (ast->data.list == NULL || VAL_TYPE(ast->data.list->head) != TYPE_SYMBOL)
+    return NULL;
+  
+  MalVal *val = env_get(env, ast->data.list->head->data.string);
+
+  if (!val)
+    return NULL;
+
+  if (VAL_TYPE(val) != TYPE_FUNCTION)
+    return NULL;
+
+  if (!val->data.fn->is_macro)
+    return NULL;
+
+  return val->data.fn;
+}
+
+static MalVal *macroexpand(MalVal *ast, ENV *env)
+{
+  Function *macro = NULL;
+  while  ((macro = is_macro_call(ast, env)) != NULL) {
+    ast = apply(macro, ast->data.list->tail);
+  }
+  return ast;
 }
 
 static MalVal *EVAL_fn_star(List *list, ENV *env)
@@ -274,8 +333,11 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
   }
 
   if (VAL_TYPE(ast) == TYPE_LIST) {
-    linked_list_reverse((void**)&ast->data.list);
-    return EVAL_quasiquote_list(ast->data.list);
+    List *list = list_duplicate(ast->data.list);
+    linked_list_reverse((void**)&list);
+    MalVal *rv = EVAL_quasiquote_list(list);
+    list_release(list);
+    return rv;
   }
 
   if (VAL_TYPE(ast) == TYPE_VECTOR) {
@@ -311,6 +373,14 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       return ast; /* empty list */
     }
 
+    ast = macroexpand(ast, env);
+
+    if (VAL_TYPE(ast) != TYPE_LIST) {
+      MalVal *rv = eval_ast(ast, env);
+      env_release(env);
+      return rv;
+    }
+
     List *list = ast->data.list;
 
     MalVal *head = list->head;
@@ -322,6 +392,11 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       if (symbol[0] == 'd') {
         if (strcmp(symbol, "def!") == 0) {
           MalVal *rv = EVAL_def(tail, env);
+          env_release(env);
+          return rv;
+        }
+        if (strcmp(symbol, "defmacro!") == 0) {
+          MalVal *rv = EVAL_defmacro(tail, env);
           env_release(env);
           return rv;
         }
@@ -353,6 +428,11 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       if (strcmp(symbol, "if") == 0) {
         EVAL_if(tail, env, &ast);
         continue;
+      }
+      if (strcmp(symbol, "macroexpand") == 0) {
+        MalVal *rv = macroexpand(tail->head, env);
+        env_release(env);
+        return rv;
       }
     }
 
@@ -404,7 +484,10 @@ MalVal *READ(char *s)
 
 char *PRINT(MalVal *val)
 {
-  return pr_str(val ? val : NIL, TRUE);
+  if (!val)
+    return strdup("null");
+
+  return pr_str(val, TRUE);
 }
 
 char *rep(ENV *repl_env, char *s)
@@ -471,7 +554,12 @@ char init[] = "\
   (fn* ([f val xs] (if (empty? xs) val (reduce f (f val (first xs)) (rest xs))))\n\
        ([f xs] (reduce f (first xs) (rest xs)))))\f\
 (def! load-file\n\
-  (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\")))))";
+  (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\")))))\f\
+(defmacro! cond\n\
+  (fn*  (& xs)\n\
+        (if (> (count xs) 0)\n\
+          (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))\n\
+";
 
 int main(int argc, char **argv)
 {

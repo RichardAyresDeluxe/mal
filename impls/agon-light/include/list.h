@@ -24,6 +24,7 @@ static inline List *list_acquire(List *l) {
 extern void list_release(List*);
 extern void list_foreach(List *, MalValProc, void*);
 extern unsigned list_count(List *list);
+extern List *list_duplicate(List *);
 
 extern MalVal *list_last(List*);
 

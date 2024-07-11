@@ -427,6 +427,9 @@ static MalVal *builtin_first(List *args, ENV *env)
 
 static MalVal *builtin_rest(List *args, ENV *env)
 {
+  if (args && VAL_IS_NIL(args->head))
+    return malval_list(NULL);
+
   if (!builtins_args_check(args, 1, ARGS_MAX, types_container))
     return NIL;
 
@@ -436,7 +439,7 @@ static MalVal *builtin_rest(List *args, ENV *env)
     case TYPE_LIST:
       return malval_list(list_is_empty(val->data.list) ? NULL : val->data.list->tail);
     case TYPE_VECTOR:
-      return malval_vector(list_is_empty(val->data.vec) ? NULL : val->data.vec->tail);
+      return malval_list(list_is_empty(val->data.vec) ? NULL : val->data.vec->tail);
   }
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot take rest of non-container");
   return NIL;
@@ -574,6 +577,36 @@ static MalVal *builtin_swap(List *args, ENV *env)
   return atom->data.atom;
 }
 
+static MalType types_nth[] = {METATYPE_CONTAINER, TYPE_NUMBER, 0};
+static MalVal *builtin_nth(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_nth))
+    return NIL;
+
+  MalVal *rv = NULL;
+  int count = args->tail->head->data.number;
+
+  if (VAL_TYPE(args->head) == TYPE_LIST) {
+    List *rover = args->head->data.list;
+    while (rover && count-- > 0)
+      rover = rover->tail;
+    rv = rover ? rover->head : NULL;
+  }
+  else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    List *rover = args->head->data.vec;
+    while (rover && count-- > 0)
+      rover = rover->tail;
+    rv = rover ? rover->head : NULL;
+  }
+  else {
+    err_warning(ERR_NOT_IMPLEMENTED, "nth only on list and vector");
+    return NULL;
+    return NIL;
+  }
+
+  return rv; // ? rv : NIL;
+}
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -590,6 +623,7 @@ struct ns core_ns[] = {
   {"vec", builtin_vec},
   {"first", builtin_first},
   {"rest", builtin_rest},
+  {"nth", builtin_nth},
   {"reverse", builtin_reverse},
   {"map", builtin_map},
   {"list", builtin_list},

@@ -5,6 +5,7 @@
 #include "listsort.h"
 #include "gc.h"
 #include "eval.h"
+#include "printer.h"
 
 #include <string.h>
 #include <stdio.h>

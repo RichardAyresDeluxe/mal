@@ -54,7 +54,7 @@ char *pr_str(const MalVal *val, bool readable)
       if (f->is_builtin) {
         return strdup("#<builtin>");
       } else {
-        char *s = strdup("#<function> ");
+        char *s = strdup(f->is_macro ? "#<macro> " : "#<function> ");
         struct Body *body = f->fn.bodies;
         while (body) {
           char *b = pr_str(body->body, TRUE);
