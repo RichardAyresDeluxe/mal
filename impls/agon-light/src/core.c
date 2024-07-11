@@ -215,13 +215,12 @@ static MalVal *builtin_cons(List *args, ENV *env)
   if (!builtins_args_check(args, 2, 2, NULL))
     return NIL;
 
-  List *list = NULL;
-  
   if (!VAL_IS_NIL(args->tail->head) && !VAL_IS_CONTAINER(args->tail->head)) {
     err_warning(ERR_ARGUMENT_MISMATCH, "second argument must be a container or nil");
     return NIL;
   }
 
+  List *list = NULL;
   switch(VAL_TYPE(args->tail->head)) {
     case TYPE_LIST:
       list = args->tail->head->data.list;
@@ -232,12 +231,6 @@ static MalVal *builtin_cons(List *args, ENV *env)
     case TYPE_MAP:
       err_warning(ERR_ARGUMENT_MISMATCH, "cannot cons to maps yet");
       return NIL;
-    case TYPE_NIL:
-      list = NULL;
-      break;
-    default:
-      err_warning(ERR_ARGUMENT_MISMATCH, "cannot cons to object");
-      break;
   }
 
   list = cons(args->head, list);

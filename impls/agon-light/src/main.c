@@ -257,59 +257,61 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     MalVal *head = list->head;
     List *tail = list->tail;
 
-    if (head->type == TYPE_SYMBOL
-     && strcmp(head->data.string, "def!") == 0
-    ) {
-      MalVal *rv = EVAL_def(tail, env);
-      env_release(env);
-      return rv;
-    }
-    else if (head->type == TYPE_SYMBOL
-          && strcmp(head->data.string, "let*") == 0
-    ) {
-      EVAL_let(tail, env, &ast, &env);
-    }
-    else if (head->type == TYPE_SYMBOL
-          && strcmp(head->data.string, "do") == 0
-    ) {
-      EVAL_do(tail, env, &ast);
-    }
-    else if (head->type == TYPE_SYMBOL
-          && strcmp(head->data.string, "fn*") == 0
-    ) {
-      return EVAL_fn_star(tail, env);
-    }
-    else if (head->type == TYPE_SYMBOL
-          && strcmp(head->data.string, "if") == 0
-    ) {
-      EVAL_if(tail, env, &ast);
-    }
-    else {
-      MalVal *f = eval_ast(ast, env);
-      if (!f)
-          return NULL;
-      if (VAL_IS_NIL(f))
-        return NIL;
-      assert(f->type == TYPE_LIST);
-      assert(f->data.list != NULL);
-
-      if (VAL_IS_NIL(f->data.list->head))
-        return NULL;
-
-      if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION)
-        return f->data.list->head;
-
-      Function *fn = f->data.list->head->data.fn;
-      List *args = f->data.list->tail;
-
-      if (fn->is_builtin) {
-        MalVal *rv = fn->fn.builtin(args, env);
+    if (head->type == TYPE_SYMBOL) {
+      /* check for special forms */
+      if (strcmp(head->data.string, "def!") == 0) {
+        MalVal *rv = EVAL_def(tail, env);
         env_release(env);
         return rv;
       }
-
-      EVAL_call(fn, args, env, &ast, &env);
+      if (strcmp(head->data.string, "let*") == 0) {
+        EVAL_let(tail, env, &ast, &env);
+        continue;
+      }
+      if (strcmp(head->data.string, "do") == 0) {
+        EVAL_do(tail, env, &ast);
+        continue;
+      }
+      if (strcmp(head->data.string, "fn*") == 0) {
+        return EVAL_fn_star(tail, env);
+      }
+      if (strcmp(head->data.string, "if") == 0) {
+        EVAL_if(tail, env, &ast);
+        continue;
+      }
+      if (strcmp(head->data.string, "quote") == 0) {
+        return tail->head;
+      }
     }
+
+    /* otherwise treat as if it's a function call */
+
+    MalVal *f = eval_ast(ast, env);
+    if (!f)
+        return NULL;
+
+    if (VAL_IS_NIL(f))
+      return NIL;
+
+    assert(f->type == TYPE_LIST);
+    assert(f->data.list != NULL);
+
+    if (VAL_IS_NIL(f->data.list->head))
+      return NULL;
+
+    if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION)
+      return f->data.list->head;
+
+    Function *fn = f->data.list->head->data.fn;
+    List *args = f->data.list->tail;
+
+    if (fn->is_builtin) {
+      MalVal *rv = fn->fn.builtin(args, env);
+      env_release(env);
+      return rv;
+    }
+
+    EVAL_call(fn, args, env, &ast, &env);
 
     gc_mark(ast, NULL);
     gc_mark_list(list, NULL);
@@ -405,6 +407,7 @@ char init[] = "\
 
 int main(int argc, char **argv)
 {
+  /* Largely to keep valgrind happy */
   atexit(cleanup);
 
   build_env();
