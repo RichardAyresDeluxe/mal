@@ -265,6 +265,21 @@ static MalVal *builtin_concat(List *args, ENV *env)
   return rv;
 }
 
+static MalVal *builtin_vec(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_container))
+    return NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_VECTOR)
+    return args->head;
+
+  if (VAL_TYPE(args->head) == TYPE_LIST)
+    return malval_vector(args->head->data.list);
+
+  err_warning(ERR_NOT_IMPLEMENTED, "cannot turn container into a vector");
+  return NIL;
+}
+
 static MalVal *builtin_is_list(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
@@ -537,6 +552,7 @@ struct ns core_ns[] = {
   {"apply", builtin_apply},
   {"cons", builtin_cons},
   {"concat", builtin_concat},
+  {"vec", builtin_vec},
   {"first", builtin_first},
   {"rest", builtin_rest},
   {"list", builtin_list},

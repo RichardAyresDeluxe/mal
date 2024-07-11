@@ -236,7 +236,32 @@ static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **en
   *envout = new_env;
 }
 
-MalVal *EVAL_quasiquote(MalVal *ast)
+static MalVal *EVAL_quasiquote(MalVal *ast);
+
+static MalVal *EVAL_quasiquote_list(List *elt)
+{
+  List *result = NULL;
+  for (; elt; elt = elt->tail) {
+    if (VAL_TYPE(elt->head) == TYPE_LIST
+     && !list_is_empty(elt->head->data.list)
+     && VAL_TYPE(elt->head->data.list->head) == TYPE_SYMBOL
+     && strcmp(elt->head->data.list->head->data.string, "splice-unquote") == 0
+    ) {
+      result = cons_weak(malval_symbol("concat"),
+                         cons_weak(elt->head->data.list->tail->head,
+                                   cons_weak(malval_list(result), NULL)));
+    }
+    else {
+      result = cons_weak(malval_symbol("cons"),
+                         cons_weak(EVAL_quasiquote(elt->head),
+                                   cons_weak(malval_list(result), NULL)));
+    }
+  }
+
+  return malval_list(result);
+}
+
+static MalVal *EVAL_quasiquote(MalVal *ast)
 {
   if (VAL_TYPE(ast) == TYPE_LIST
    && !list_is_empty(ast->data.list)
@@ -249,27 +274,16 @@ MalVal *EVAL_quasiquote(MalVal *ast)
   }
 
   if (VAL_TYPE(ast) == TYPE_LIST) {
-    List *result = NULL;
-
     linked_list_reverse((void**)&ast->data.list);
+    return EVAL_quasiquote_list(ast->data.list);
+  }
 
-    for (List *elt = ast->data.list; elt; elt = elt->tail) {
-      if (VAL_TYPE(elt->head) == TYPE_LIST
-       && !list_is_empty(elt->head->data.list)
-       && VAL_TYPE(elt->head->data.list->head) == TYPE_SYMBOL
-       && strcmp(elt->head->data.list->head->data.string, "splice-unquote") == 0
-      ) {
-        result = cons_weak(malval_symbol("concat"),
-                           cons_weak(elt->head->data.list->tail->head,
-                                     cons_weak(malval_list(result), NULL)));
-      }
-      else {
-        result = cons_weak(malval_symbol("cons"),
-                           cons_weak(EVAL_quasiquote(elt->head),
-                                     cons_weak(malval_list(result), NULL)));
-      }
-    }
-
+  if (VAL_TYPE(ast) == TYPE_VECTOR) {
+    List *list = list_from_container(ast);
+    linked_list_reverse((void**)&list);
+    List * result = cons_weak(malval_symbol("vec"),
+                              cons_weak(EVAL_quasiquote_list(list),
+                                        NULL));
     return malval_list(result);
   }
 
