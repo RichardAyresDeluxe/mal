@@ -77,6 +77,18 @@ void gc_add(MalVal *value)
   values_count++;
 }
 
+MalVal *gc_pop(void)
+{
+  if (!all_values)
+    return NULL;
+
+  MalVal *result = all_values;
+  all_values = all_values->next;
+  values_count--;
+
+  return result;
+}
+
 void value_info(unsigned *count, unsigned *size)
 {
   *count = 0;

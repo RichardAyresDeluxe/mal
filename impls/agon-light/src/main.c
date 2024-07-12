@@ -662,9 +662,9 @@ static void build_env(void)
     env_set(repl_env, ns->name, function_create_builtin(ns->fn));
   }
 
-  env_set(repl_env, "nil", NIL);
-  env_set(repl_env, "true", T);
-  env_set(repl_env, "false", F);
+  env_set(repl_env, "nil", _nil);
+  env_set(repl_env, "true", _true);
+  env_set(repl_env, "false", _false);
   env_set(repl_env, "eval", function_create_builtin(builtin_eval));
   env_set(repl_env, "*ARGV*", malval_list(NULL));
   env_set(repl_env, "*host-language*", malval_string("agon-light"));
@@ -692,8 +692,6 @@ char init[] = "\
           (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))\n\
 ";
 
-MalVal *_nil, *_true, *_false;
-
 int main(int argc, char **argv)
 {
   /* Largely to keep valgrind happy */
@@ -702,6 +700,9 @@ int main(int argc, char **argv)
   _nil = malval_nil();
   _true = malval_bool(TRUE);
   _false = malval_bool(FALSE);
+  gc_pop();
+  gc_pop();
+  gc_pop();
 
   build_env();
 

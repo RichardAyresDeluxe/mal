@@ -9,6 +9,8 @@
 #include <string.h>
 
 
+MalVal *_nil, *_true, *_false;
+
 MalVal *malval_create(MalType type)
 {
   MalVal *val = heap_malloc(sizeof(MalVal));

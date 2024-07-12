@@ -7,6 +7,9 @@
 /** Take out the trash */
 extern void gc(bool force, bool collect_temps);
 extern void gc_add(MalVal *);
+/** Pop the last item of "all values" list - used for values that should never
+ * be deleted, i.e. nil, true, false */
+extern MalVal *gc_pop(void);
 extern void gc_mark(MalVal *val, void *data);
 extern void gc_mark_env(struct ENV*, void*);
 extern void gc_mark_list(List*, void*);
