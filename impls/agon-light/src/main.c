@@ -308,8 +308,6 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
     env_set(let, rover->head->data.string, val);
   }
 
-  env_release(env);
-
   *out = list->tail->head;
   env_release(*envout);
   *envout = let;

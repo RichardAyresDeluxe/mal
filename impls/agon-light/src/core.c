@@ -944,7 +944,6 @@ static MalVal *builtin_readline(List *args, ENV *env)
 #else
   char buf[256], *s;
   fputs(args->head->data.string, stdout);
-  fputs(" ", stdout);
 
   if ((s = fgets(buf, 255, stdin)) == NULL)
     return NIL;

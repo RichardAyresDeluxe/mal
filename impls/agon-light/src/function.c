@@ -121,6 +121,7 @@ MalVal *function_create(List *body, ENV *env)
   Function *func = heap_malloc(sizeof(Function));
   func->env = env_acquire(env); //env_create(env, NULL, NULL);
   func->is_builtin = 0;
+  func->is_macro = 0;
 
   if (is_single_body(body)) {
     /* single body */

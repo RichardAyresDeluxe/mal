@@ -82,8 +82,9 @@ const char *lex_peekn(lexer_t lexer, uint8_t n)
     {
         unsigned got = lex_get_input(lexer);
         if (n > got) {
-            err_warning(ERR_LEXER_ERROR, "Unexpected end of input");
-            return "";
+            return lexer->bufptr;
+            // err_warning(ERR_LEXER_ERROR, "Unexpected end of input");
+            // return "";
         }
     }
 
