@@ -38,21 +38,36 @@ MalVal *malval_string(const char *s)
 MalVal *malval_list(List *list)
 {
   MalVal *val = malval_create(TYPE_LIST);
-  val->data.list = list_acquire(list);
+  val->data.list = heap_malloc(sizeof(struct ListWithMeta));
+  val->data.list->list = list_acquire(list);
+  val->data.list->meta = NIL;
   return val;
 }
 
 MalVal *malval_vector(List *list)
 {
   MalVal *val = malval_create(TYPE_VECTOR);
-  val->data.list = list_acquire(list);
+  val->data.vec = heap_malloc(sizeof(struct VecWithMeta));
+  val->data.vec->vec = list_acquire(list);
+  val->data.vec->meta = NIL;
   return val;
 }
 
 MalVal *malval_map(List *list)
 {
   MalVal *val = malval_create(TYPE_MAP);
-  val->data.list = list_acquire(list);
+  val->data.map = heap_malloc(sizeof(struct MapWithMeta));
+  val->data.map->map = list_acquire(list);
+  val->data.map->meta = NIL;
+  return val;
+}
+
+MalVal *malval_function(Function *fn)
+{
+  MalVal *val = malval_create(TYPE_FUNCTION);
+  val->data.fn = heap_malloc(sizeof(struct MapWithMeta));
+  val->data.fn->fn = fn;
+  val->data.fn->meta = NIL;
   return val;
 }
 
@@ -60,13 +75,6 @@ MalVal *malval_number(int number)
 {
   MalVal *val = malval_create(TYPE_NUMBER);
   val->data.number = number;
-  return val;
-}
-
-MalVal *malval_function(Function *fn)
-{
-  MalVal *val = malval_create(TYPE_FUNCTION);
-  val->data.fn = fn;
   return val;
 }
 
@@ -92,16 +100,20 @@ void malval_free(MalVal *val)
       heap_free(val->data.string);
       break;
     case TYPE_MAP:
-      list_release(val->data.map);
+      list_release(val->data.map->map);
+      heap_free(val->data.map);
       break;
     case TYPE_VECTOR:
-      list_release(val->data.vec);
+      list_release(val->data.vec->vec);
+      heap_free(val->data.vec);
       break;
     case TYPE_LIST:
-      list_release(val->data.list);
+      list_release(val->data.list->list);
+      heap_free(val->data.list);
       break;
     case TYPE_FUNCTION:
-      function_destroy(val->data.fn);
+      function_destroy(val->data.fn->fn);
+      heap_free(val->data.fn);
       break;
   }
 
@@ -117,22 +129,22 @@ unsigned malval_size(MalVal *val, bool deep)
 
   switch(val->type) {
     case TYPE_LIST:
-      for (List *rover = val->data.list; rover; rover = rover->tail) {
+      for (List *rover = VAL_LIST(val); rover; rover = rover->tail) {
         sz += malval_size(rover->head, deep);
       }
       break;
     case TYPE_MAP:
-      for (List *rover = val->data.map; rover; rover = rover->tail) {
+      for (List *rover = VAL_MAP(val); rover; rover = rover->tail) {
         sz += malval_size(rover->head, deep);
       }
       break;
     case TYPE_VECTOR:
-      for (List *rover = val->data.vec; rover; rover = rover->tail) {
+      for (List *rover = VAL_VEC(val); rover; rover = rover->tail) {
         sz += malval_size(rover->head, deep);
       }
       break;
     case TYPE_ATOM:
-      sz += malval_size(val->data.atom, deep);
+      sz += malval_size(VAL_ATOM(val), deep);
       break;
   }
 
@@ -148,13 +160,13 @@ void malval_reset_temp(MalVal *val, void *data)
 
   switch (val->type) {
     case TYPE_LIST:
-      list_foreach(val->data.list, malval_reset_temp, data);
+      list_foreach(VAL_LIST(val), malval_reset_temp, data);
       break;
     case TYPE_VECTOR:
-      list_foreach(val->data.vec, malval_reset_temp, data);
+      list_foreach(VAL_VEC(val), malval_reset_temp, data);
       break;
     case TYPE_MAP:
-      list_foreach(val->data.map, malval_reset_temp, data);
+      list_foreach(VAL_MAP(val), malval_reset_temp, data);
       break;
     case TYPE_ATOM:
       val->data.atom->temp = 0;
@@ -212,10 +224,10 @@ bool malval_equals(MalVal *a, MalVal *b)
   if (VAL_TYPE(a) != VAL_TYPE(b)) {
 
     if (VAL_TYPE(a) == TYPE_LIST && VAL_TYPE(b) == TYPE_VECTOR)
-      return list_equals(a->data.list, b->data.vec);
+      return list_equals(VAL_LIST(a), VAL_VEC(b));
 
     if (VAL_TYPE(b) == TYPE_LIST && VAL_TYPE(a) == TYPE_VECTOR)
-      return list_equals(b->data.list, a->data.vec);
+      return list_equals(VAL_LIST(b), VAL_VEC(a));
 
     return FALSE;
   }
@@ -234,11 +246,11 @@ bool malval_equals(MalVal *a, MalVal *b)
       else
         return strcmp(a->data.string, b->data.string) == 0;
     case TYPE_LIST:
-      return list_equals(a->data.list, b->data.list);
+      return list_equals(VAL_LIST(a), VAL_LIST(b));
     case TYPE_VECTOR:
-      return list_equals(a->data.vec, b->data.vec);
+      return list_equals(VAL_VEC(a), VAL_VEC(b));
     case TYPE_MAP:
-      return map_equals(a->data.map, b->data.map);
+      return map_equals(VAL_MAP(a), VAL_MAP(b));
 
     case TYPE_ATOM:
       return malval_equals(a->data.atom, b->data.atom);

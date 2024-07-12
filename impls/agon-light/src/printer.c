@@ -19,13 +19,13 @@ char *pr_str(const MalVal *val, bool readable)
       return strdup(buf);
 
     case TYPE_LIST:
-      return pr_str_list(val->data.list, readable);
+      return pr_str_list(VAL_LIST(val), readable);
 
     case TYPE_VECTOR:
-      return pr_str_vector(val->data.vec, readable);
+      return pr_str_vector(VAL_VEC(val), readable);
 
     case TYPE_MAP:
-      return pr_str_map(val->data.map, readable);
+      return pr_str_map(VAL_MAP(val), readable);
 
     case TYPE_STRING:
       if (readable) {
@@ -50,7 +50,7 @@ char *pr_str(const MalVal *val, bool readable)
       return strdup(val->data.bool ? "true" : "false");
 
     case TYPE_FUNCTION: {
-      Function *f = val->data.fn;
+      Function *f = VAL_FUNCTION(val);
       if (f->is_builtin) {
         return strdup("#<builtin>");
       } else {

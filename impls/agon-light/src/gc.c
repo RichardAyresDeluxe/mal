@@ -41,19 +41,23 @@ void gc_mark(MalVal *val, void *data)
 
   switch (val->type) {
     case TYPE_VECTOR: 
-      list_foreach(val->data.vec, gc_mark, NULL);
+      list_foreach(val->data.vec->vec, gc_mark, data);
+      gc_mark(val->data.vec->meta, data);
       break;
     case TYPE_LIST: 
-      list_foreach(val->data.list, gc_mark, NULL);
+      list_foreach(val->data.list->list, gc_mark, data);
+      gc_mark(val->data.list->meta, data);
       break;
     case TYPE_MAP:
-      list_foreach(val->data.map, gc_mark, NULL);
+      list_foreach(val->data.map->map, gc_mark, data);
+      gc_mark(val->data.map->meta, data);
       break;
     case TYPE_FUNCTION:
-      function_gc_mark(val->data.fn, NULL);
+      function_gc_mark(val->data.fn->fn, data);
+      gc_mark(val->data.fn->meta, data);
       break;
     case TYPE_ATOM:
-      gc_mark(val->data.atom, NULL);
+      gc_mark(val->data.atom, data);
       break;
   }
 }

@@ -5,7 +5,6 @@
 #include "listsort.h"
 #include "gc.h"
 #include "eval.h"
-#include "printer.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -30,10 +29,10 @@ static struct Body *create_body(List *list)
   List *lbinds;
 
   if (VAL_TYPE(binds) == TYPE_VECTOR) {
-    lbinds = binds->data.vec;
+    lbinds = VAL_VEC(binds);
   }
   else if (VAL_TYPE(binds) == TYPE_LIST) {
-    lbinds = binds->data.list;
+    lbinds = VAL_LIST(binds);
   }
   else {
     err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be a vector or list");
@@ -86,7 +85,7 @@ static bool is_single_body(List *body)
    * or two bodies */
   if (VAL_TYPE(body->head) == TYPE_VECTOR)
     return TRUE;
-  if (VAL_TYPE(body->head) == TYPE_LIST && list_forall(body->head->data.list, is_symbol, NULL))
+  if (VAL_TYPE(body->head) == TYPE_LIST && list_forall(VAL_LIST(body->head), is_symbol, NULL))
     return TRUE;
   return FALSE;
 }
@@ -110,7 +109,7 @@ MalVal *function_create(List *body, ENV *env)
         function_destroy(func);
         return NIL;
       }
-      struct Body *b = create_body(rover->head->data.list);
+      struct Body *b = create_body(VAL_LIST(rover->head));
       if (!b) {
         function_destroy(func);
         return NIL;

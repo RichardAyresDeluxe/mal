@@ -70,7 +70,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   if (ast->type == TYPE_LIST)
   {
     List *evaluated = NULL;
-    for (List *rover = ast->data.list; rover; rover = rover->tail) {
+    for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
       MalVal *val = EVAL(rover->head, env);
       if (exception) {
         list_release(evaluated);
@@ -87,7 +87,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   if (ast->type == TYPE_VECTOR)
   {
     List *evaluated = NULL;
-    for (List *rover = ast->data.list; rover; rover = rover->tail) {
+    for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
       MalVal *val = EVAL(rover->head, env);
       if (exception) {
         list_release(evaluated);
@@ -105,7 +105,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   {
     List *evaluated = NULL;
     unsigned i = 0;
-    for (List *rover = ast->data.list; rover; rover = rover->tail) {
+    for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
       if ((i++ % 2) == 0) {
         /* even - a key, don't evaluate */
         evaluated = cons_weak(rover->head, evaluated);
@@ -179,7 +179,7 @@ static MalVal *EVAL_defmacro(List *list, ENV *env)
     return NIL;
   }
 
-  value->data.fn->is_macro = 1;
+  VAL_FUNCTION(value)->is_macro = 1;
 
   env_set(env, name, value);
 
@@ -192,10 +192,10 @@ static Function *is_macro_call(MalVal *ast, ENV *env)
   if (VAL_TYPE(ast) != TYPE_LIST)
     return NULL;
 
-  if (ast->data.list == NULL || VAL_TYPE(ast->data.list->head) != TYPE_SYMBOL)
+  if (VAL_LIST(ast) == NULL || VAL_TYPE(VAL_LIST(ast)->head) != TYPE_SYMBOL)
     return NULL;
   
-  MalVal *val = env_get(env, ast->data.list->head->data.string);
+  MalVal *val = env_get(env, VAL_LIST(ast)->head->data.string);
 
   if (!val)
     return NULL;
@@ -203,17 +203,17 @@ static Function *is_macro_call(MalVal *ast, ENV *env)
   if (VAL_TYPE(val) != TYPE_FUNCTION)
     return NULL;
 
-  if (!val->data.fn->is_macro)
+  if (!VAL_FUNCTION(val)->is_macro)
     return NULL;
 
-  return val->data.fn;
+  return VAL_FUNCTION(val);
 }
 
 static MalVal *macroexpand(MalVal *ast, ENV *env)
 {
   Function *macro = NULL;
   while  ((macro = is_macro_call(ast, env)) != NULL) {
-    ast = apply(macro, ast->data.list->tail);
+    ast = apply(macro, VAL_LIST(ast)->tail);
   }
   return ast;
 }
@@ -278,7 +278,7 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
     return;
   }
 
-  List *bindings = list->head->data.list;
+  List *bindings = VAL_LIST(list->head);
   if ((list_count(bindings) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
     env_release(let);
@@ -339,12 +339,12 @@ static MalVal *EVAL_quasiquote_list(List *elt)
   List *result = NULL;
   for (; elt; elt = elt->tail) {
     if (VAL_TYPE(elt->head) == TYPE_LIST
-     && !list_is_empty(elt->head->data.list)
-     && VAL_TYPE(elt->head->data.list->head) == TYPE_SYMBOL
-     && strcmp(elt->head->data.list->head->data.string, "splice-unquote") == 0
+     && !list_is_empty(VAL_LIST(elt->head))
+     && VAL_TYPE(VAL_LIST(elt->head)->head) == TYPE_SYMBOL
+     && strcmp(VAL_LIST(elt->head)->head->data.string, "splice-unquote") == 0
     ) {
       result = cons_weak(malval_symbol("concat"),
-                         cons_weak(elt->head->data.list->tail->head,
+                         cons_weak(VAL_LIST(elt->head)->tail->head,
                                    cons_weak(malval_list(result), NULL)));
     }
     else {
@@ -366,17 +366,17 @@ static MalVal *EVAL_quasiquote_list(List *elt)
 static MalVal *EVAL_quasiquote(MalVal *ast)
 {
   if (VAL_TYPE(ast) == TYPE_LIST
-   && !list_is_empty(ast->data.list)
-   && VAL_TYPE(ast->data.list->head) == TYPE_SYMBOL
-   && strcmp(ast->data.list->head->data.string, "unquote") == 0)
+   && !list_is_empty(VAL_LIST(ast))
+   && VAL_TYPE(VAL_LIST(ast)->head) == TYPE_SYMBOL
+   && strcmp(VAL_LIST(ast)->head->data.string, "unquote") == 0)
   {
     /*   - If `ast` is a list starting with the "unquote" symbol, return its
      *       second element. */
-    return ast->data.list->tail->head;
+    return VAL_LIST(ast)->tail->head;
   }
 
   if (VAL_TYPE(ast) == TYPE_LIST) {
-    List *list = list_duplicate(ast->data.list);
+    List *list = list_duplicate(VAL_LIST(ast));
     linked_list_reverse((void**)&list);
     MalVal *rv = EVAL_quasiquote_list(list);
     if (exception) {
@@ -424,10 +424,10 @@ static MalVal *EVAL_try(List *body, ENV *env)
   MalVal *catch = body->tail->head;
 
   if (VAL_TYPE(catch) != TYPE_LIST
-   || list_count(catch->data.list) != 3
-   || VAL_TYPE(catch->data.list->head) != TYPE_SYMBOL
-   || strcmp(catch->data.list->head->data.string, "catch*") != 0
-   || VAL_TYPE(catch->data.list->tail->head) != TYPE_SYMBOL
+   || list_count(VAL_LIST(catch)) != 3
+   || VAL_TYPE(VAL_LIST(catch)->head) != TYPE_SYMBOL
+   || strcmp(VAL_LIST(catch)->head->data.string, "catch*") != 0
+   || VAL_TYPE(VAL_LIST(catch)->tail->head) != TYPE_SYMBOL
   ) {
     err_warning(ERR_ARGUMENT_MISMATCH, "invalid catch block");
     return NIL;
@@ -435,11 +435,11 @@ static MalVal *EVAL_try(List *body, ENV *env)
 
   /* we have an exception */
   malval_reset_temp(result, NULL);
-  List binds = {NULL, 1, catch->data.list->tail->head};
+  List binds = {NULL, 1, VAL_LIST(catch)->tail->head};
   List exc = {NULL, 1, exception};
   ENV *env2 = env_create(env, &binds, &exc);
   exception = NULL;
-  result = EVAL(catch->data.list->tail->tail->head, env2);
+  result = EVAL(VAL_LIST(catch)->tail->tail->head, env2);
   env_release(env2);
 
   return result;
@@ -459,7 +459,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       env_release(env);
       return rv;
     }
-    if (ast->data.list == NULL) {
+    if (VAL_LIST(ast) == NULL) {
       env_release(env);
       return ast; /* empty list */
     }
@@ -472,7 +472,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       return rv;
     }
 
-    List *list = ast->data.list;
+    List *list = VAL_LIST(ast);
 
     MalVal *head = list->head;
     List *tail = list->tail;
@@ -564,14 +564,14 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     assert(f->type == TYPE_LIST);
     assert(f->data.list != NULL);
 
-    if (VAL_IS_NIL(f->data.list->head))
+    if (VAL_IS_NIL(VAL_LIST(f)->head))
       return NULL;
 
-    if (VAL_TYPE(f->data.list->head) != TYPE_FUNCTION)
-      return f->data.list->head;
+    if (VAL_TYPE(VAL_LIST(f)->head) != TYPE_FUNCTION)
+      return VAL_LIST(f)->head;
 
-    Function *fn = f->data.list->head->data.fn;
-    List *args = f->data.list->tail;
+    Function *fn = VAL_FUNCTION(VAL_LIST(f)->head);
+    List *args = VAL_LIST(f)->tail;
 
     if (fn->is_builtin) {
       MalVal *rv = fn->fn.builtin(args, env);

@@ -16,7 +16,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <alloca.h>
 
 #ifndef AGON_LIGHT
@@ -161,9 +160,11 @@ static MalVal *lessthan(List *args, ENV *env)
 
 static MalVal *lessthan_or_equal(List *args, ENV *env)
 {
-  assert(args != NULL && args->tail != NULL);
-
-  assert(VAL_TYPE(args->head) == TYPE_NUMBER && VAL_TYPE(args->tail->head) == TYPE_NUMBER);
+  if (!builtins_args_check(args, 2, ARGS_MAX, NULL)
+   || !builtins_all_numeric(args))
+  {
+    return NIL;
+  }
 
   if (args->head->data.number <= args->tail->head->data.number)
     return T;
@@ -206,7 +207,7 @@ static MalVal *builtin_apply(List *args, ENV *env)
 
   List *all;
   if (args && VAL_TYPE(args->head) == TYPE_LIST) {
-    all = list_acquire(args->head->data.list);
+    all = list_acquire(VAL_LIST(args->head));
   }
   else if (args && VAL_TYPE(args->head) == TYPE_VECTOR) {
     all = list_from_container(args->head);
@@ -219,7 +220,7 @@ static MalVal *builtin_apply(List *args, ENV *env)
   for (List *rover = args->tail; rover; rover = rover->tail)
     all = cons_weak(rover->head, all);
 
-  MalVal *rv = apply(f->data.fn, all);
+  MalVal *rv = apply(VAL_FUNCTION(f), all);
   list_release(all);
   return rv;
 }
@@ -242,10 +243,10 @@ static MalVal *builtin_cons(List *args, ENV *env)
   List *list = NULL;
   switch(VAL_TYPE(args->tail->head)) {
     case TYPE_LIST:
-      list = args->tail->head->data.list;
+      list = VAL_LIST(args->tail->head);
       break;
     case TYPE_VECTOR:
-      list = args->tail->head->data.vec;
+      list = VAL_VEC(args->tail->head);
       break;
     case TYPE_MAP:
       err_warning(ERR_ARGUMENT_MISMATCH, "cannot cons to maps yet");
@@ -287,7 +288,7 @@ static MalVal *builtin_vec(List *args, ENV *env)
     return args->head;
 
   if (VAL_TYPE(args->head) == TYPE_LIST)
-    return malval_vector(args->head->data.list);
+    return malval_vector(VAL_LIST(args->head));
 
   err_warning(ERR_NOT_IMPLEMENTED, "cannot turn container into a vector");
   return NIL;
@@ -314,9 +315,9 @@ static MalVal *builtin_is_empty(List *args, ENV *env)
     return NIL;
   }
 
-  if ((VAL_TYPE(args->head) == TYPE_LIST && list_is_empty(args->head->data.list))
-   || (VAL_TYPE(args->head) == TYPE_VECTOR && list_is_empty(args->head->data.vec))
-   || (VAL_TYPE(args->head) == TYPE_MAP && list_is_empty(args->head->data.map))
+  if ((VAL_TYPE(args->head) == TYPE_LIST && list_is_empty(VAL_LIST(args->head)))
+   || (VAL_TYPE(args->head) == TYPE_VECTOR && list_is_empty(VAL_VEC(args->head)))
+   || (VAL_TYPE(args->head) == TYPE_MAP && list_is_empty(VAL_MAP(args->head)))
   ) {
     return T;
   }
@@ -333,11 +334,11 @@ static MalVal *builtin_count(List *args, ENV *env)
 
   switch (VAL_TYPE(args->head)) {
     case TYPE_LIST:
-      return malval_number(list_count(args->head->data.list));
+      return malval_number(list_count(VAL_LIST(args->head)));
     case TYPE_VECTOR:
-      return malval_number(list_count(args->head->data.vec));
+      return malval_number(list_count(VAL_VEC(args->head)));
     case TYPE_MAP:
-      return malval_number(list_count(args->head->data.map) / 2);
+      return malval_number(list_count(VAL_MAP(args->head)) / 2);
   }
 
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot count object");
@@ -430,9 +431,9 @@ static MalVal *builtin_first(List *args, ENV *env)
 
   switch(VAL_TYPE(val)) {
     case TYPE_LIST:
-      return list_is_empty(val->data.list) ? NIL : val->data.list->head;
+      return list_is_empty(VAL_LIST(val)) ? NIL : VAL_LIST(val)->head;
     case TYPE_VECTOR:
-      return list_is_empty(val->data.vec) ? NIL : val->data.vec->head;
+      return list_is_empty(VAL_VEC(val)) ? NIL : VAL_VEC(val)->head;
   }
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot take first of non-container");
   return NIL;
@@ -450,9 +451,9 @@ static MalVal *builtin_rest(List *args, ENV *env)
 
   switch(VAL_TYPE(val)) {
     case TYPE_LIST:
-      return malval_list(list_is_empty(val->data.list) ? NULL : val->data.list->tail);
+      return malval_list(list_is_empty(VAL_LIST(val)) ? NULL : VAL_LIST(val)->tail);
     case TYPE_VECTOR:
-      return malval_list(list_is_empty(val->data.vec) ? NULL : val->data.vec->tail);
+      return malval_list(list_is_empty(VAL_VEC(val)) ? NULL : VAL_VEC(val)->tail);
   }
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot take rest of non-container");
   return NIL;
@@ -480,7 +481,7 @@ static MalVal *builtin_map(List *args, ENV *env)
     return NIL;
 
   List *result = NULL;
-  Function *f = args->head->data.fn;
+  Function *f = VAL_FUNCTION(args->head);
   List *input = list_from_container(args->tail->head);
   for (; input; input = input->tail) {
     List a = {NULL, 1, input->head};
@@ -587,7 +588,7 @@ static MalVal *builtin_swap(List *args, ENV *env)
   MalVal *func = args->tail->head;
   List *fargs = cons(atom->data.atom, args->tail->tail);
 
-  atom->data.atom = apply(func->data.fn, fargs);
+  atom->data.atom = apply(VAL_FUNCTION(func), fargs);
   list_release(fargs);
 
   return atom->data.atom;
@@ -603,10 +604,10 @@ static MalVal *builtin_nth(List *args, ENV *env)
   int count = args->tail->head->data.number;
 
   if (VAL_TYPE(args->head) == TYPE_LIST) {
-    rv = list_nth(args->head->data.list, count);
+    rv = list_nth(VAL_LIST(args->head), count);
   }
   else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    rv = list_nth(args->head->data.vec, count);
+    rv = list_nth(VAL_VEC(args->head), count);
   }
   else {
     err_warning(ERR_NOT_IMPLEMENTED, "nth only on list and vector");
@@ -745,7 +746,7 @@ static MalVal *assoc_map(List *args, ENV *env)
     return NIL;
   }
 
-  List *result = list_duplicate(map->data.map);
+  List *result = list_duplicate(VAL_MAP(map));
   for (List *entry = args->tail; entry && entry; entry = entry->tail->tail) {
     result = cons_weak(entry->head, cons_weak(entry->tail->head, result));
   }
@@ -765,7 +766,7 @@ static MalVal *assoc_vec(List *args, ENV *env)
     return NIL;
   }
 
-  List *result = list_duplicate(vec->data.vec);
+  List *result = list_duplicate(VAL_VEC(vec));
   list_reverse(&result);
   unsigned c = list_count(result);
 
@@ -829,7 +830,7 @@ static MalVal *builtin_dissoc(List *args, ENV *env)
 
   MalVal *map = args->head;
   List *keys = args->tail;
-  List *result = list_duplicate(map->data.map);
+  List *result = list_duplicate(VAL_MAP(map));
 
   for (List *key = keys; key; key = key->tail) {
     List *l2 = dissoc_key(result, key->head);
@@ -848,7 +849,7 @@ static MalVal *builtin_get(List *args, ENV *env)
     return NIL;
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
-    List *map = args->head->data.map;
+    List *map = VAL_MAP(args->head);
     MalVal *key = args->tail->head;
     for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
       if (malval_equals(key, entry->head))
@@ -858,7 +859,7 @@ static MalVal *builtin_get(List *args, ENV *env)
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *vec = args->head->data.vec;
+    List *vec = VAL_VEC(args->head);
     MalVal *index = args->tail->head;
     if (VAL_TYPE(index) != TYPE_NUMBER) {
       exception = malval_string("Invalid index");
@@ -878,11 +879,11 @@ static MalVal *builtin_contains(List *args, ENV *env)
     return NIL;
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
-    return map_contains(args->head->data.map, args->tail->head) ? T : F;
+    return map_contains(VAL_MAP(args->head), args->tail->head) ? T : F;
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *vec = args->head->data.vec;
+    List *vec = VAL_VEC(args->head);
     MalVal *index = args->tail->head;
     if (VAL_TYPE(index) != TYPE_NUMBER) {
       exception = malval_string("Invalid index");
@@ -904,7 +905,7 @@ static MalVal *builtin_keys(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, types_hashmap))
     return NIL;
 
-  List *normalised = map_normalise(args->head->data.map);
+  List *normalised = map_normalise(VAL_MAP(args->head));
   List *result = NULL;
   for (List *entry = normalised; entry && entry->tail; entry = entry->tail->tail) {
     result = cons_weak(entry->head, result);
@@ -921,7 +922,7 @@ static MalVal *builtin_vals(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, types_hashmap))
     return NIL;
 
-  List *normalised = map_normalise(args->head->data.map);
+  List *normalised = map_normalise(VAL_MAP(args->head));
   List *result = NULL;
   for (List *entry = normalised; entry && entry->tail; entry = entry->tail->tail) {
     result = cons_weak(entry->tail->head, result);
@@ -1011,11 +1012,11 @@ static MalVal *builtin_seq(List *args, ENV *env)
     case TYPE_NIL:
       return NIL;
     case TYPE_LIST:
-      if (list_is_empty(args->head->data.list))
+      if (list_is_empty(VAL_LIST(args->head)))
         return NIL;
       return args->head;
     case TYPE_VECTOR:
-      if (list_is_empty(args->head->data.vec))
+      if (list_is_empty(VAL_VEC(args->head)))
         return NIL;
       result = list_from_container(args->head);
       break;
@@ -1043,14 +1044,14 @@ static MalVal *builtin_conj(List *args, ENV *env)
     return malval_list(args->tail);
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *result = list_concat(args->head->data.vec, args->tail);
+    List *result = list_concat(VAL_VEC(args->head), args->tail);
     MalVal *rv = malval_vector(result);
     list_release(result);
     return rv;
   }
 
   if (VAL_TYPE(args->head) == TYPE_LIST) {
-    List *result = list_acquire(args->head->data.list);
+    List *result = list_acquire(VAL_LIST(args->head));
 
     for (List *arg = args->tail; arg; arg = arg->tail)
       result = cons_weak(arg->head, result);
@@ -1121,8 +1122,14 @@ struct ns core_ns[] = {
   {"swap!", builtin_swap},
 
   {"readline", builtin_readline},
+
   {"time-ms", builtin_time_ms},
 
+  {"meta", builtin_time_ms},
+  {"with-meta", builtin_time_ms},
+
+  // {"meta", builtin_meta},
+  // {"with-meta", builtin_with_meta},
   {"conj", builtin_conj},
 
   {"fn?", builtin_is_fn},

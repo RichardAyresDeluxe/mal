@@ -97,9 +97,9 @@ List *list_from_container(MalVal *val)
 {
   switch(val->type) {
     case TYPE_LIST:
-      return list_acquire(val->data.list);
+      return list_acquire(VAL_LIST(val));
     case TYPE_VECTOR:
-      return list_duplicate(val->data.vec);
+      return list_duplicate(VAL_VEC(val));
   }
   return NULL;
 }

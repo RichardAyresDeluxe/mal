@@ -40,6 +40,26 @@ struct ENV;
 struct MalVal;
 struct Function;
 
+struct ListWithMeta {
+  struct List *list;
+  struct MalVal *meta;
+};
+
+struct VecWithMeta {
+  struct List *vec;
+  struct MalVal *meta;
+};
+
+struct MapWithMeta {
+  struct List *map;
+  struct MalVal *meta;
+};
+
+struct FunctionWithMeta {
+  struct Function *fn;
+  struct MalVal *meta;
+};
+
 typedef struct MalVal {
   struct MalVal *next;      /* used for garbage collection */
   uint8_t type:6;
@@ -48,13 +68,13 @@ typedef struct MalVal {
   union {
     int number;
     bool bool;
-    struct List *list;
-    struct List *vec;
-    struct List *map;
-    struct Function *fn;
     struct MalVal *atom;
     char *string;
     void *data;
+    struct ListWithMeta *list;
+    struct VecWithMeta *vec;
+    struct MapWithMeta *map;
+    struct FunctionWithMeta *fn;
   } data;
 } MalVal;
 
@@ -86,6 +106,15 @@ extern MalVal *_nil, *_true, *_false;
 #define VAL_FALSE(val) (VAL_IS_NIL(val) || VAL_IS_FALSE(val))
 #define VAL_TRUE(val) (!VAL_FALSE(val))
 #define VAL_IS_KEYWORD(val) (VAL_TYPE(val) == TYPE_SYMBOL && (val)->data.string[0] == -1)
+
+#define VAL_LIST(val) ((val)->data.list->list)
+#define VAL_VEC(val) ((val)->data.vec->vec)
+#define VAL_MAP(val) ((val)->data.map->map)
+#define VAL_FUNCTION(val) ((val)->data.fn->fn)
+#define VAL_NUMBER(val) ((val)->data.number)
+#define VAL_BOOL(val) ((val)->data.bool)
+#define VAL_STRING(val) ((val)->data.string)
+#define VAL_ATOM(val) ((val)->data.atom)
 
 void malval_free(MalVal*);
 unsigned malval_size(MalVal*, bool);
