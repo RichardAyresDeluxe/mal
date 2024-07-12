@@ -49,4 +49,6 @@ static inline List *list_reverse(List **list) {
   return *list;
 }
 
+extern MalVal *list_nth(List *, unsigned);
+
 #endif /* _list_H */

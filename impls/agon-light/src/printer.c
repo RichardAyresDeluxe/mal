@@ -59,7 +59,8 @@ char *pr_str(const MalVal *val, bool readable)
         while (body) {
           char *b = pr_str(body->body, TRUE);
           catstr(&s, b);
-          catstr(&s, "\n");
+          if (body->next)
+            catstr(&s, "\n");
           heap_free(b);
           body = body->next;
         }

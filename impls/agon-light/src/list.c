@@ -132,3 +132,10 @@ List *list_duplicate(List *list)
   linked_list_reverse((void**)&result);
   return result;
 }
+
+MalVal *list_nth(List *list, unsigned idx)
+{
+  while (list && idx-- > 0)
+    list = list->tail;
+  return list ? list->head : NULL;
+}

@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
-
 #include "malval.h"
 #include "list.h"
 #include "gc.h"
@@ -18,6 +13,11 @@
 #include "function.h"
 #include "str.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
+#include <alloca.h>
 
 /* REPL */
 ENV *repl_env = NULL;
@@ -39,21 +39,6 @@ static void warn_symbol_not_found(const char *name)
   heap_free(s);
 }
 
-static MalVal *symbol_to_keyword(const char *symbol)
-{
-  unsigned l = strlen(symbol);
-  char *s = heap_malloc(l + 1);
-
-  s[0] = ':';
-  memcpy(&s[1], &symbol[1], l - 1);
-  s[l] = '\0';
-
-  MalVal *value = malval_symbol(s);
-  heap_free(s);
-
-  return value;
-}
-
 MalVal *eval_ast(MalVal *ast, ENV *env)
 {
   if (ast->type == TYPE_SYMBOL)
@@ -61,7 +46,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
     MalVal *value = NULL;
     if (ast->data.string[0] == -1) {
       /* is a keyword */
-      value = symbol_to_keyword(ast->data.string);
+      value = ast;
     }
     else
       value = env_get(env, ast->data.string);
@@ -69,11 +54,15 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
     if (value)
       return value;
 
-    char *s = strdup("'");
-    catstr(&s, ast->data.string);
-    catstr(&s, "' not found");
+    unsigned l = 1 +  // "'"
+                 strlen(ast->data.string) +
+                 11 + // "' not found"
+                 1;
+    char *s = alloca(l);
+    strcpy(s, "'");
+    strcat(s, ast->data.string);
+    strcat(s, "' not found");
     exception = malval_string(s);
-    heap_free(s);
 
     return ast;
   }
@@ -423,12 +412,17 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
 
 static MalVal *EVAL_try(List *body, ENV *env)
 {
-  if (list_count(body) != 2) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "try* needs two arguments");
-    return NIL;
-  }
+  MalVal *result = EVAL(body->head, env);
+  if (!exception) /* no exception */
+    return result;
+
+  /* we have an exception */
+
+  if (!body->tail)
+    return NIL; /* but no catch */
 
   MalVal *catch = body->tail->head;
+
   if (VAL_TYPE(catch) != TYPE_LIST
    || list_count(catch->data.list) != 3
    || VAL_TYPE(catch->data.list->head) != TYPE_SYMBOL
@@ -438,10 +432,6 @@ static MalVal *EVAL_try(List *body, ENV *env)
     err_warning(ERR_ARGUMENT_MISMATCH, "invalid catch block");
     return NIL;
   }
-
-  MalVal *result = EVAL(body->head, env);
-  if (!exception) /* no exception */
-    return result;
 
   /* we have an exception */
   malval_reset_temp(result, NULL);

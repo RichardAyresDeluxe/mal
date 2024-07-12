@@ -17,8 +17,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <alloca.h>
 
 #define ARGS_MAX MAX_ARITY
+
+static MalType types_container[] = {METATYPE_CONTAINER, 0};
+static MalType types_containers[] = {
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
+  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER, 0};
 
 bool builtins_all_numeric(List *list)
 {
@@ -243,15 +252,9 @@ static MalVal *builtin_cons(List *args, ENV *env)
   return malval_list(list);
 }
 
-static MalType types_container[] = {
-  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
-  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
-  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
-  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
-  METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER, 0};
 static MalVal *builtin_concat(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 0, ARGS_MAX, types_container))
+  if (!builtins_args_check(args, 0, ARGS_MAX, types_containers))
     return NIL;
 
   List *result = NULL;
@@ -272,7 +275,7 @@ static MalVal *builtin_concat(List *args, ENV *env)
 
 static MalVal *builtin_vec(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, 1, types_container))
+  if (!builtins_args_check(args, 1, 1, types_containers))
     return NIL;
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR)
@@ -415,7 +418,7 @@ static MalVal *builtin_println(List *args, ENV *env)
 
 static MalVal *builtin_first(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, ARGS_MAX, types_container))
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
     return NIL;
 
   MalVal *val = args->head;
@@ -435,7 +438,7 @@ static MalVal *builtin_rest(List *args, ENV *env)
   if (args && VAL_IS_NIL(args->head))
     return malval_list(NULL);
 
-  if (!builtins_args_check(args, 1, ARGS_MAX, types_container))
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
     return NIL;
 
   MalVal *val = args->head;
@@ -452,7 +455,7 @@ static MalVal *builtin_rest(List *args, ENV *env)
 
 static MalVal *builtin_reverse(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, 1, types_container))
+  if (!builtins_args_check(args, 1, 1, types_containers))
     return NIL;
 
   List *result = NULL;
@@ -592,27 +595,20 @@ static MalVal *builtin_nth(List *args, ENV *env)
   int count = args->tail->head->data.number;
 
   if (VAL_TYPE(args->head) == TYPE_LIST) {
-    List *rover = args->head->data.list;
-    while (rover && count-- > 0)
-      rover = rover->tail;
-    rv = rover ? rover->head : NULL;
+    rv = list_nth(args->head->data.list, count);
   }
   else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *rover = args->head->data.vec;
-    while (rover && count-- > 0)
-      rover = rover->tail;
-    rv = rover ? rover->head : NULL;
+    rv = list_nth(args->head->data.vec, count);
   }
   else {
     err_warning(ERR_NOT_IMPLEMENTED, "nth only on list and vector");
-    return NULL;
     return NIL;
   }
 
-  if (count > 0)
+  if (rv == NULL)
     exception = malval_string("bounds exception");
 
-  return rv; // ? rv : NIL;
+  return rv;
 }
 
 static MalVal *builtin_is_nil(List *args, ENV *env)
@@ -678,16 +674,20 @@ static MalVal *builtin_symbol(List *args, ENV *env)
   return malval_symbol(args->head->data.string);
 }
 
+static MalType types_keyword[] = {METATYPE_STRING, 0};
 static MalVal *builtin_keyword(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, 1, types_string))
+  if (!builtins_args_check(args, 1, 1, types_keyword))
     return NIL;
 
-  char *s = strdup(":");
-  catstr(&s, args->head->data.string);
-  MalVal *val = malval_symbol(s);
-  heap_free(s);
-  return val;
+  if (VAL_IS_KEYWORD(args->head))
+    return args->head;
+
+  char *s = args->head->data.string;
+  char *kw  = alloca(2 + strlen(s));
+  kw[0] = -1;
+  strcpy(&kw[1], s);
+  return malval_symbol(kw);
 }
 
 static MalVal *builtin_vector(List *args, ENV *env)
@@ -738,11 +738,13 @@ static MalVal *assoc_map(List *args, ENV *env)
   }
 
   List *result = list_duplicate(map->data.map);
-  for (List *entry = args->tail; entry; entry = entry->tail->tail) {
+  for (List *entry = args->tail; entry && entry; entry = entry->tail->tail) {
     result = cons_weak(entry->head, cons_weak(entry->tail->head, result));
   }
-  MalVal *val = malval_map(result);
+  List *normalised = map_normalise(result);
+  MalVal *val = malval_map(normalised);
   list_release(result);
+  list_release(normalised);
   return val;
 }
 
@@ -783,10 +785,9 @@ static MalVal *assoc_vec(List *args, ENV *env)
   return val;
 }
 
-static MalType types_assoc[] = {METATYPE_CONTAINER, 0};
 static MalVal *builtin_assoc(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, ARGS_MAX, types_assoc))
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_container))
     return NIL;
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
@@ -803,7 +804,7 @@ static MalVal *builtin_assoc(List *args, ENV *env)
 static List *dissoc_key(List *map, MalVal *key)
 {
   List *result = NULL;
-  for (List *entry = map; entry; entry = entry->tail->tail) {
+  for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
     if (!malval_equals(entry->head, key)) {
       result = cons_weak(entry->tail->head, cons_weak(entry->head, result));
     }
@@ -812,9 +813,10 @@ static List *dissoc_key(List *map, MalVal *key)
   return result;
 }
 
+static MalType types_dissoc[] = {TYPE_MAP, 0};
 static MalVal *builtin_dissoc(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, ARGS_MAX, types_assoc))
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_dissoc))
     return NIL;
 
   MalVal *map = args->head;
@@ -832,6 +834,96 @@ static MalVal *builtin_dissoc(List *args, ENV *env)
   return rv;
 }
 
+static MalVal *builtin_get(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_container))
+    return NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_MAP) {
+    List *map = args->head->data.map;
+    MalVal *key = args->tail->head;
+    for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
+      if (malval_equals(key, entry->head))
+        return entry->tail->head;
+    }
+    return NIL;
+  }
+
+  if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    List *vec = args->head->data.vec;
+    MalVal *index = args->tail->head;
+    if (VAL_TYPE(index) != TYPE_NUMBER) {
+      exception = malval_string("Invalid index");
+      return NIL;
+    }
+    MalVal *rv = list_nth(vec, index->data.number);
+    return rv ? rv : NIL;
+  }
+
+  exception = malval_string("get requires vec or map");
+  return NIL;
+}
+
+static MalVal *builtin_contains(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_container))
+    return NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_MAP) {
+    return map_contains(args->head->data.map, args->tail->head) ? T : F;
+  }
+
+  if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    List *vec = args->head->data.vec;
+    MalVal *index = args->tail->head;
+    if (VAL_TYPE(index) != TYPE_NUMBER) {
+      exception = malval_string("Invalid index");
+      return NIL;
+    }
+    int i = index->data.number;
+    while (vec && i-- > 0)
+      vec = vec->tail;
+    return i == -1 ? T : F;
+  }
+
+  exception = malval_string("contains? requires vec or map");
+  return NIL;
+}
+
+static MalType types_hashmap[] = {TYPE_MAP, 0};
+static MalVal *builtin_keys(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_hashmap))
+    return NIL;
+
+  List *normalised = map_normalise(args->head->data.map);
+  List *result = NULL;
+  for (List *entry = normalised; entry && entry->tail; entry = entry->tail->tail) {
+    result = cons_weak(entry->head, result);
+  }
+
+  MalVal *rv = malval_list(result);
+  list_release(normalised);
+  list_release(result);
+  return rv;
+}
+
+static MalVal *builtin_vals(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_hashmap))
+    return NIL;
+
+  List *normalised = map_normalise(args->head->data.map);
+  List *result = NULL;
+  for (List *entry = normalised; entry && entry->tail; entry = entry->tail->tail) {
+    result = cons_weak(entry->tail->head, result);
+  }
+
+  MalVal *rv = malval_list(result);
+  list_release(normalised);
+  list_release(result);
+  return rv;
+}
 
 struct ns core_ns[] = {
   {"+", plus},
@@ -869,6 +961,10 @@ struct ns core_ns[] = {
   {"map?", builtin_is_map},
   {"assoc", builtin_assoc},
   {"dissoc", builtin_dissoc},
+  {"get", builtin_get},
+  {"contains?", builtin_contains},
+  {"keys", builtin_keys},
+  {"vals", builtin_vals},
   {"sequential?", builtin_is_sequential},
   {"pr-str", builtin_pr_str},
   {"str", builtin_str},

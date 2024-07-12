@@ -83,11 +83,16 @@ void malval_reset_temp(MalVal *, void*);
 #define VAL_IS_FALSE(val) (VAL_TYPE(val) == TYPE_BOOL && (val)->data.bool == FALSE)
 #define VAL_FALSE(val) (VAL_IS_NIL(val) || VAL_IS_FALSE(val))
 #define VAL_TRUE(val) (!VAL_FALSE(val))
-#define VAL_IS_KEYWORD(val) (VAL_TYPE(val) == TYPE_SYMBOL && (val)->data.string[0] == ':')
+#define VAL_IS_KEYWORD(val) (VAL_TYPE(val) == TYPE_SYMBOL && (val)->data.string[0] == -1)
 
 void malval_free(MalVal*);
 unsigned malval_size(MalVal*, bool);
 
 bool malval_equals(MalVal*, MalVal*);
+
+/* map-as-list stuff */
+MalVal *map_get(struct List *map, MalVal *key);
+#define map_contains(map, key) (map_get((map), (key)) != NULL)
+struct List *map_normalise(struct List *map);
 
 #endif /* _MALVAL_H */

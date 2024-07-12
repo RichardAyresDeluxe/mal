@@ -1,5 +1,3 @@
-#include <string.h>
-
 #include "malval.h"
 #include "list.h"
 #include "heap.h"
@@ -7,6 +5,8 @@
 #include "function.h"
 #include "err.h"
 #include "str.h"
+
+#include <string.h>
 
 
 MalVal *malval_create(MalType type)
@@ -160,6 +160,51 @@ void malval_reset_temp(MalVal *val, void *data)
   }
 }
 
+MalVal *map_get(List *map, MalVal *key)
+{
+  for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
+    if (malval_equals(key, entry->head))
+      return entry->tail->head;
+  }
+  return NULL;;
+}
+
+List *map_normalise(List *map)
+{
+  List *result = NULL;
+
+  for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
+    if (!map_contains(result, entry->head)) {
+      result = cons_weak(entry->head, cons_weak(entry->tail->head, result));
+    }
+  }
+
+  return result;
+}
+
+static bool map_equals(List *_a, List *_b)
+{
+  bool rv = FALSE;
+  List *a = map_normalise(_a);
+  List *b = map_normalise(_b);
+
+  if (list_count(a) != list_count(b)) {
+    goto done;
+  }
+
+  for (List *entry = a; entry && entry->tail; entry = entry->tail->tail) {
+    if (!malval_equals(entry->tail->head, map_get(b, entry->head))) {
+      goto done;
+    }
+  }
+  rv = TRUE;
+
+done:
+  list_release(a);
+  list_release(b);
+  return rv;
+}
+
 bool malval_equals(MalVal *a, MalVal *b)
 {
   if (VAL_TYPE(a) != VAL_TYPE(b)) {
@@ -191,7 +236,7 @@ bool malval_equals(MalVal *a, MalVal *b)
     case TYPE_VECTOR:
       return list_equals(a->data.vec, b->data.vec);
     case TYPE_MAP:
-      return list_equals(a->data.map, b->data.map);
+      return map_equals(a->data.map, b->data.map);
 
     case TYPE_ATOM:
       return malval_equals(a->data.atom, b->data.atom);
