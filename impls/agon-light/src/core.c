@@ -190,12 +190,17 @@ static MalVal *builtin_apply(List *args, ENV *env)
 
   linked_list_reverse((void*)&args);
 
-  if (!args || VAL_TYPE(args->head) != TYPE_LIST) {
+  List *all;
+  if (args && VAL_TYPE(args->head) == TYPE_LIST) {
+    all = list_acquire(args->head->data.list);
+  }
+  else if (args && VAL_TYPE(args->head) == TYPE_VECTOR) {
+    all = list_from_container(args->head);
+  }
+  else {
     err_warning(ERR_ARGUMENT_MISMATCH, "apply: last argument must be a list");
     return NIL;
   }
-  
-  List *all = list_acquire(args->head->data.list);
 
   for (List *rover = args->tail; rover; rover = rover->tail)
     all = cons_weak(rover->head, all);
@@ -637,6 +642,7 @@ struct ns core_ns[] = {
   {"gc", builtin_gc},
   {"read-string", builtin_read_string},
   {"slurp", builtin_slurp},
+  {"throw", builtin_throw},
   /* atom stuff: */
   {"atom", builtin_atom},
   {"atom?", builtin_is_atom},

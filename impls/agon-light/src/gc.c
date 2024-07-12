@@ -5,6 +5,7 @@
 #include "gc.h"
 #include "env.h"
 #include "function.h"
+#include "eval.h"
 
 extern ENV *repl_env;
 
@@ -63,6 +64,7 @@ void gc(bool force, bool collect_temps)
     return;
 
   gc_mark_env(repl_env, NULL);
+  gc_mark(exception, NULL);
   sweep(collect_temps);
 
   values_max = 2 * values_count;

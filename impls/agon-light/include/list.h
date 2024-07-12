@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "malval.h"
+#include "listsort.h"
 
 typedef struct List {
   struct List *tail;
@@ -42,5 +43,10 @@ extern List *list_from_container(MalVal*);
 
 /* returns a new list */
 extern List *list_concat(List *, List *);
+
+static inline List *list_reverse(List **list) {
+  linked_list_reverse((void**)list);
+  return *list;
+}
 
 #endif /* _list_H */
