@@ -691,10 +691,16 @@ char init[] = "\
           (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))\n\
 ";
 
+MalVal *_nil, *_true, *_false;
+
 int main(int argc, char **argv)
 {
   /* Largely to keep valgrind happy */
   atexit(cleanup);
+
+  _nil = malval_nil();
+  _true = malval_bool(TRUE);
+  _false = malval_bool(FALSE);
 
   build_env();
 

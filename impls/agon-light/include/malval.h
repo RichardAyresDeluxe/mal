@@ -74,9 +74,11 @@ MalVal *malval_number(int);
 
 void malval_reset_temp(MalVal *, void*);
 
-#define NIL malval_nil()
-#define T malval_bool(TRUE)
-#define F malval_bool(FALSE)
+extern MalVal *_nil, *_true, *_false;
+
+#define NIL _nil
+#define T _true
+#define F _false
 #define VAL_TYPE(val) ((val)->type)
 #define VAL_IS_NIL(val) (VAL_TYPE(val) == TYPE_NIL)
 #define VAL_IS_TRUE(val) (VAL_TYPE(val) == TYPE_BOOL && (val)->data.bool == TRUE)
