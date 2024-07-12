@@ -161,7 +161,7 @@ static MalVal *EVAL_defmacro(List *list, ENV *env)
     return NIL;
   }
 
-  const char *name = list->head->data.string;
+  const char *name = VAL_STRING(list->head);
 
   MalVal *value = EVAL(list->tail->head, env);
   if (exception) {
@@ -179,11 +179,13 @@ static MalVal *EVAL_defmacro(List *list, ENV *env)
     return NIL;
   }
 
-  VAL_FUNCTION(value)->is_macro = 1;
+  MalVal *copy = malval_function(function_duplicate(VAL_FUNCTION(value)));
 
-  env_set(env, name, value);
+  VAL_FUNCTION(copy)->is_macro = 1;
 
-  return value;
+  env_set(env, name, copy);
+
+  return copy;
 }
 
 /* Returns the function if this is a macro call, otherwise NULL */

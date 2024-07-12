@@ -116,6 +116,8 @@ extern MalVal *_nil, *_true, *_false;
 #define VAL_STRING(val) ((val)->data.string)
 #define VAL_ATOM(val) ((val)->data.atom)
 
+#define VAL_HAS_META(val) (VAL_TYPE(val) == TYPE_LIST || VAL_TYPE(val) == TYPE_VECTOR || VAL_TYPE(val) == TYPE_MAP || VAL_TYPE(val) == TYPE_FUNCTION)
+
 void malval_free(MalVal*);
 unsigned malval_size(MalVal*, bool);
 

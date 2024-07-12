@@ -31,6 +31,7 @@ typedef struct Function Function;
 extern MalVal *function_create(List*, ENV*);
 extern MalVal *function_create_builtin(builtin_fn*);
 extern void function_destroy(Function*);
+extern Function *function_duplicate(Function*);
 
 extern void function_gc_mark(Function*, void*);
 

@@ -22,6 +22,32 @@ MalVal *function_create_builtin(builtin_fn *fn)
   return malval_function(func);
 }
 
+Function *function_duplicate(Function *in)
+{
+  Function *out = heap_malloc(sizeof(Function));
+  out->env = env_acquire(in->env);
+  out->is_builtin = in->is_builtin;
+  out->is_macro = in->is_macro;
+  if (in->is_builtin) {
+    out->fn.builtin = in->fn.builtin;
+  }
+  else {
+    struct Body *bodies = NULL;
+    for (struct Body *bin = in->fn.bodies; bin; bin = bin->next) {
+      struct Body *bout = heap_malloc(sizeof(struct Body));
+      bout->arity = bin->arity;
+      bout->binds = list_acquire(bin->binds);
+      bout->body = bin->body;
+      bout->next = bodies;
+      bodies = bout;
+    }
+    linked_list_reverse((void**)&bodies);
+    out->fn.bodies = bodies;
+  }
+
+  return out;
+}
+
 static struct Body *create_body(List *list)
 {
   MalVal *binds = list->head;

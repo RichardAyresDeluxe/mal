@@ -982,7 +982,15 @@ static MalVal *builtin_is_fn(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
 
-  return VAL_TYPE(args->head) == TYPE_FUNCTION ? T : F;
+  return (VAL_TYPE(args->head) == TYPE_FUNCTION && VAL_FUNCTION(args->head)->is_macro == 0) ? T : F;
+}
+
+static MalVal *builtin_is_macro(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return (VAL_TYPE(args->head) == TYPE_FUNCTION && VAL_FUNCTION(args->head)->is_macro == 1) ? T : F;
 }
 
 static MalVal *builtin_is_string(List *args, ENV *env)
@@ -1065,6 +1073,57 @@ static MalVal *builtin_conj(List *args, ENV *env)
   return NIL;
 }
 
+static MalVal *builtin_meta(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  switch(VAL_TYPE(args->head)) {
+    case TYPE_LIST:
+      return args->head->data.list->meta;
+    case TYPE_VECTOR:
+      return args->head->data.vec->meta;
+    case TYPE_MAP:
+      return args->head->data.map->meta;
+    case TYPE_FUNCTION:
+      return args->head->data.fn->meta;
+  }
+
+  return NIL;
+}
+
+static MalVal *builtin_with_meta(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, NULL))
+    return NIL;
+
+  MalVal *metadata = args->tail->head;
+  MalVal *result = NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_LIST) {
+    result = malval_list(VAL_LIST(args->head));
+    result->data.list->meta = metadata;
+  }
+  else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    result = malval_vector(VAL_VEC(args->head));
+    result->data.vec->meta = metadata;
+  }
+  else if (VAL_TYPE(args->head) == TYPE_MAP) {
+    result = malval_map(VAL_MAP(args->head));
+    result->data.vec->meta = metadata;
+  }
+  else if (VAL_TYPE(args->head) == TYPE_FUNCTION) {
+    Function *copy = function_duplicate(VAL_FUNCTION(args->head));
+    result = malval_function(copy);
+    result->data.fn->meta = metadata;
+  }
+  else {
+    exception = malval_string("Cannot set metadata on object");
+  }
+
+  return result;
+}
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -1125,14 +1184,12 @@ struct ns core_ns[] = {
 
   {"time-ms", builtin_time_ms},
 
-  {"meta", builtin_time_ms},
-  {"with-meta", builtin_time_ms},
-
-  // {"meta", builtin_meta},
-  // {"with-meta", builtin_with_meta},
+  {"meta", builtin_meta},
+  {"with-meta", builtin_with_meta},
   {"conj", builtin_conj},
 
   {"fn?", builtin_is_fn},
+  {"macro?", builtin_is_macro},
   {"string?", builtin_is_string},
   {"number?", builtin_is_number},
   {"seq", builtin_seq},
