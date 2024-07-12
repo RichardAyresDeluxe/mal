@@ -68,6 +68,10 @@ step9_try: $(OBJDIR)/mal
 	@rm -f $@
 	@ln -s $< $@
 
+stepA_mal: $(OBJDIR)/mal
+	@rm -f $@
+	@ln -s $< $@
+
 .PHONY: all clean tags
 
 ifneq ($(wildcard $(OBJDIR)/*.d), )

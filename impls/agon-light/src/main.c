@@ -667,6 +667,7 @@ static void build_env(void)
   env_set(repl_env, "false", F);
   env_set(repl_env, "eval", function_create_builtin(builtin_eval));
   env_set(repl_env, "*ARGV*", malval_list(NULL));
+  env_set(repl_env, "*host-language*", malval_string("agon-light"));
 }
 
 /* init mal code, separated by \f */
@@ -737,6 +738,8 @@ int main(int argc, char **argv)
     heap_free(s);
     exit(0);
   }
+
+  heap_free(rep(repl_env, "(println (str \"Mal [\" *host-language* \"]\"))"));
 
   while (1) {
     char *s = rep(repl_env, NULL);

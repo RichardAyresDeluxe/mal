@@ -2,6 +2,8 @@
 #include "heap.h"
 #include "listsort.h"
 
+#include <string.h>
+
 List *cons_weak(MalVal *val, List *list)
 {
   List *c = heap_malloc(sizeof(List));
@@ -100,6 +102,20 @@ List *list_from_container(MalVal *val)
       return list_duplicate(val->data.vec);
   }
   return NULL;
+}
+
+List *list_from_string(const char *s)
+{
+  List *result = NULL;
+
+  char c[2] = {0, 0};
+  size_t l = strlen(s);
+
+  while (l-- > 0) {
+    c[0] = s[l];
+    result = cons_weak(malval_string(c), result);
+  }
+  return result;
 }
 
 /* returns a new list */

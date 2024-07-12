@@ -40,6 +40,7 @@ static inline bool list_is_empty(List *l) {
 }
 
 extern List *list_from_container(MalVal*);
+extern List *list_from_string(const char *);
 
 /* returns a new list */
 extern List *list_concat(List *, List *);

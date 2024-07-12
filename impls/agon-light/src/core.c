@@ -19,8 +19,13 @@
 #include <assert.h>
 #include <alloca.h>
 
+#ifndef AGON_LIGHT
+#include <sys/time.h>
+#endif
+
 #define ARGS_MAX MAX_ARITY
 
+static MalType types_string[] = {TYPE_STRING, 0};
 static MalType types_container[] = {METATYPE_CONTAINER, 0};
 static MalType types_containers[] = {
   METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
@@ -500,7 +505,6 @@ static MalVal *builtin_gc(List *args, ENV *env)
   return NIL;
 }
 
-static MalType types_string[] = {TYPE_STRING, 0};
 static MalVal *builtin_read_string(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_string))
@@ -514,8 +518,11 @@ static MalVal *builtin_slurp(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
 
-  /* TODO: AGON VERSION */
   char *s = NULL;
+#ifdef AGON_LIGHT
+  /* TODO: AGON VERSION */
+#error NIY
+#else
   FILE *fh = fopen(args->head->data.string, "r");
   if (!fh) {
     err_warning(ERR_FILE_ERROR, "cannot open file");
@@ -528,6 +535,7 @@ static MalVal *builtin_slurp(List *args, ENV *env)
     catstr(&s, buf);
   }
   fclose(fh);
+#endif
 
   MalVal *rv = malval_string(s);
   heap_free(s);
@@ -925,6 +933,137 @@ static MalVal *builtin_vals(List *args, ENV *env)
   return rv;
 }
 
+static MalVal *builtin_readline(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_string))
+    return NIL;
+
+#ifdef AGON_LIGHT
+#error NIY
+#else
+  char buf[256], *s;
+  fputs(args->head->data.string, stdout);
+  fputs(" ", stdout);
+
+  if ((s = fgets(buf, 255, stdin)) == NULL)
+    return NIL;
+
+  s[strlen(s)-1] = '\0';
+
+  return malval_string(s);
+#endif
+}
+
+static MalVal *builtin_time_ms(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 0, 0, NULL))
+    return NIL;
+
+#ifdef AGON_LIGHT
+#error NIY
+#else
+  struct timeval tv;
+  if (gettimeofday(&tv, NULL) < 0) {
+    err_warning(ERR_INVALID_OPERATION, "gettimeofday() failed");
+    return NIL;
+  }
+
+  long epoch = 1720700000000; /* random epoch keeps ms within integer size */
+  long time = (long)tv.tv_sec * 1000L + (long)tv.tv_usec / 1000L;
+  return malval_number((int)(time-epoch));
+#endif
+
+  return NIL;
+}
+
+static MalVal *builtin_is_fn(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_TYPE(args->head) == TYPE_FUNCTION ? T : F;
+}
+
+static MalVal *builtin_is_string(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_TYPE(args->head) == TYPE_STRING ? T : F;
+}
+
+static MalVal *builtin_is_number(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_TYPE(args->head) == TYPE_NUMBER ? T : F;
+}
+
+static MalVal *builtin_seq(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  List *result = NULL;
+
+  switch(VAL_TYPE(args->head)) {
+    case TYPE_NIL:
+      return NIL;
+    case TYPE_LIST:
+      if (list_is_empty(args->head->data.list))
+        return NIL;
+      return args->head;
+    case TYPE_VECTOR:
+      if (list_is_empty(args->head->data.vec))
+        return NIL;
+      result = list_from_container(args->head);
+      break;
+    case TYPE_STRING:
+      if (args->head->data.string[0] == '\0')
+        return NIL;
+      result = list_from_string(args->head->data.string);
+      break;
+    default:
+      exception = malval_string("not a container");
+      return NIL;
+  }
+
+  MalVal *rv = malval_list(result);
+  list_release(result);
+  return rv;
+}
+
+static MalVal *builtin_conj(List *args, ENV *env)
+{
+  if (!args)
+    return malval_vector(NULL);
+
+  if (VAL_IS_NIL(args->head))
+    return malval_list(args->tail);
+
+  if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    List *result = list_concat(args->head->data.vec, args->tail);
+    MalVal *rv = malval_vector(result);
+    list_release(result);
+    return rv;
+  }
+
+  if (VAL_TYPE(args->head) == TYPE_LIST) {
+    List *result = list_acquire(args->head->data.list);
+
+    for (List *arg = args->tail; arg; arg = arg->tail)
+      result = cons_weak(arg->head, result);
+
+    MalVal *rv = malval_list(result);
+    list_release(result);
+    return rv;
+  }
+
+  exception = malval_string("not a container");
+  return NIL;
+}
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -980,6 +1119,17 @@ struct ns core_ns[] = {
   {"deref", builtin_deref},
   {"reset!", builtin_reset},
   {"swap!", builtin_swap},
+
+  {"readline", builtin_readline},
+  {"time-ms", builtin_time_ms},
+
+  {"conj", builtin_conj},
+
+  {"fn?", builtin_is_fn},
+  {"string?", builtin_is_string},
+  {"number?", builtin_is_number},
+  {"seq", builtin_seq},
+
   {NULL, NULL},
 };
 
