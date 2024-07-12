@@ -728,6 +728,111 @@ static MalVal *builtin_is_map(List *args, ENV *env)
   return VAL_TYPE(args->head) == TYPE_MAP ? T : F;
 }
 
+static MalVal *assoc_map(List *args, ENV *env)
+{
+  MalVal *map = args->head;
+
+  if ((list_count(args->tail) % 2) != 0) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
+    return NIL;
+  }
+
+  List *result = list_duplicate(map->data.map);
+  for (List *entry = args->tail; entry; entry = entry->tail->tail) {
+    result = cons_weak(entry->head, cons_weak(entry->tail->head, result));
+  }
+  MalVal *val = malval_map(result);
+  list_release(result);
+  return val;
+}
+
+static MalVal *assoc_vec(List *args, ENV *env)
+{
+  MalVal *vec = args->head;
+
+  if ((list_count(args->tail) % 2) != 0) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
+    return NIL;
+  }
+
+  List *result = list_duplicate(vec->data.vec);
+  list_reverse(&result);
+  unsigned c = list_count(result);
+
+  for (List *entry = args->tail; entry; entry = entry->tail->tail) {
+    if (VAL_TYPE(entry->head) != TYPE_NUMBER) {
+      err_warning(ERR_ARGUMENT_MISMATCH, "require number as index to vec");
+      list_release(result);
+      return NIL;
+    }
+    unsigned index = entry->head->data.number;
+    if (index != c) {
+      list_release(result);
+      exception = malval_string("Index out of bounds");
+      return NIL;
+    }
+
+    result = cons_weak(entry->tail->head, result);
+    c++;
+  }
+
+  list_reverse(&result);
+
+  MalVal *val = malval_vector(result);
+  list_release(result);
+  return val;
+}
+
+static MalType types_assoc[] = {METATYPE_CONTAINER, 0};
+static MalVal *builtin_assoc(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_assoc))
+    return NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_MAP) {
+    return assoc_map(args, env);
+  }
+  else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    return assoc_vec(args, env);
+  }
+
+  err_warning(ERR_ARGUMENT_MISMATCH, "assoc requires a map or vector");
+  return NIL;
+}
+
+static List *dissoc_key(List *map, MalVal *key)
+{
+  List *result = NULL;
+  for (List *entry = map; entry; entry = entry->tail->tail) {
+    if (!malval_equals(entry->head, key)) {
+      result = cons_weak(entry->tail->head, cons_weak(entry->head, result));
+    }
+  }
+  linked_list_reverse((void**)&result);
+  return result;
+}
+
+static MalVal *builtin_dissoc(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_assoc))
+    return NIL;
+
+  MalVal *map = args->head;
+  List *keys = args->tail;
+  List *result = list_duplicate(map->data.map);
+
+  for (List *key = keys; key; key = key->tail) {
+    List *l2 = dissoc_key(result, key->head);
+    list_release(result);
+    result = l2;
+  }
+
+  MalVal *rv = malval_map(result);
+  list_release(result);
+  return rv;
+}
+
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -762,6 +867,8 @@ struct ns core_ns[] = {
   {"vector?", builtin_is_vector},
   {"hash-map", builtin_hash_map},
   {"map?", builtin_is_map},
+  {"assoc", builtin_assoc},
+  {"dissoc", builtin_dissoc},
   {"sequential?", builtin_is_sequential},
   {"pr-str", builtin_pr_str},
   {"str", builtin_str},
