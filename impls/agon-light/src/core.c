@@ -609,7 +609,123 @@ static MalVal *builtin_nth(List *args, ENV *env)
     return NIL;
   }
 
+  if (count > 0)
+    exception = malval_string("bounds exception");
+
   return rv; // ? rv : NIL;
+}
+
+static MalVal *builtin_is_nil(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_IS_NIL(args->head) ? T : F;
+}
+
+static MalVal *builtin_is_true(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_IS_TRUE(args->head) ? T : F;
+}
+
+static MalVal *builtin_is_false(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_IS_FALSE(args->head) ? T : F;
+}
+
+static MalVal *builtin_is_symbol(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_SYMBOL) {
+    /* is it really a keyword */
+    return VAL_IS_KEYWORD(args->head) ? F : T;
+  }
+
+  return F;
+}
+
+static MalVal *builtin_is_keyword(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_IS_KEYWORD(args->head) ? T : F;
+}
+
+static MalVal *builtin_throw(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  exception = args->head;
+
+  return NIL;
+}
+
+static MalVal *builtin_symbol(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_string))
+    return NIL;
+
+  return malval_symbol(args->head->data.string);
+}
+
+static MalVal *builtin_keyword(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_string))
+    return NIL;
+
+  char *s = strdup(":");
+  catstr(&s, args->head->data.string);
+  MalVal *val = malval_symbol(s);
+  heap_free(s);
+  return val;
+}
+
+static MalVal *builtin_vector(List *args, ENV *env)
+{
+  return malval_vector(args);
+}
+
+static MalVal *builtin_is_vector(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_TYPE(args->head) == TYPE_VECTOR ? T : F;
+}
+
+static MalVal *builtin_is_sequential(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return (VAL_TYPE(args->head) == TYPE_VECTOR || VAL_TYPE(args->head) == TYPE_LIST) ? T : F;
+}
+
+static MalVal *builtin_hash_map(List *args, ENV *env)
+{
+  if ((list_count(args) % 2) != 0) {
+    err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
+    return NIL;
+  }
+  return malval_map(list_acquire(args));
+}
+
+static MalVal *builtin_is_map(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return VAL_TYPE(args->head) == TYPE_MAP ? T : F;
 }
 
 struct ns core_ns[] = {
@@ -635,6 +751,18 @@ struct ns core_ns[] = {
   {"list?", builtin_is_list},
   {"empty?", builtin_is_empty},
   {"count", builtin_count},
+  {"nil?", builtin_is_nil},
+  {"true?", builtin_is_true},
+  {"false?", builtin_is_false},
+  {"symbol", builtin_symbol},
+  {"symbol?", builtin_is_symbol},
+  {"keyword", builtin_keyword},
+  {"keyword?", builtin_is_keyword},
+  {"vector", builtin_vector},
+  {"vector?", builtin_is_vector},
+  {"hash-map", builtin_hash_map},
+  {"map?", builtin_is_map},
+  {"sequential?", builtin_is_sequential},
   {"pr-str", builtin_pr_str},
   {"str", builtin_str},
   {"prn", builtin_prn},
