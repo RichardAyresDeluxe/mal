@@ -32,6 +32,10 @@ $(OBJDIR)/mal: ${OBJ_FILES} ${LIB_BUILTINS}
 	${LD} ${LDFLAGS} -Xlinker -Map=$(patsubst $(OBJDIR)/%,$(OBJDIR)/%.map,$@) \
 		-o $@ ${OBJ_FILES} ${LIB_BUILTINS} ${LIBS}
 
+step0_repl: $(OBJDIR)/mal
+	@rm -f $@
+	@ln -s $< $@
+
 step1_read_print: $(OBJDIR)/mal
 	@rm -f $@
 	@ln -s $< $@
