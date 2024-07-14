@@ -118,10 +118,16 @@ static bool is_single_body(List *body)
 
 MalVal *function_create(List *body, ENV *env)
 {
+  MalVal *doc = NULL;
   Function *func = heap_malloc(sizeof(Function));
   func->env = env_acquire(env); //env_create(env, NULL, NULL);
   func->is_builtin = 0;
   func->is_macro = 0;
+
+  if (body && VAL_TYPE(body->head) == TYPE_STRING) {
+    doc = body->head;
+    body = body->tail;
+  }
 
   if (is_single_body(body)) {
     /* single body */
@@ -149,7 +155,13 @@ MalVal *function_create(List *body, ENV *env)
     linked_list_sort_raw((void**)&func->fn.bodies, arity_comp, NULL);
   }
 
-  return malval_function(func);
+  MalVal *rv = malval_function(func);
+  if (doc) {
+    List *doclist = cons_weak(malval_keyword(":doc"), cons_weak(doc, NULL));
+    rv->data.fn->meta = malval_map(doclist);
+    list_release(doclist);
+  }
+  return rv;
 }
 
 void function_destroy(Function *func)
