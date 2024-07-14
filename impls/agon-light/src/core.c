@@ -12,6 +12,7 @@
 #include "gc.h"
 #include "reader.h"
 #include "eval.h"
+#include "itoa.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -437,6 +438,64 @@ static MalVal *builtin_first(List *args, ENV *env)
   }
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot take first of non-container");
   return NIL;
+}
+
+static MalVal *builtin_last(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
+    return NIL;
+
+  MalVal *val = args->head;
+
+  List *list;
+  switch(VAL_TYPE(val)) {
+    case TYPE_LIST:
+      list = VAL_LIST(val);
+      break;
+    case TYPE_VECTOR:
+      list = VAL_VEC(val);
+      break;
+    default:
+      exception = malval_string("cannot take last of non-container");
+      return NIL;
+  }
+
+  while (list && list->tail)
+    list = list->tail;
+
+  return list ? list->head : NIL;
+}
+
+static MalVal *builtin_butlast(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
+    return NIL;
+
+  MalVal *val = args->head;
+
+  List *result = NULL;
+  List *list;
+  switch(VAL_TYPE(val)) {
+    case TYPE_LIST:
+      list = VAL_LIST(val);
+      break;
+    case TYPE_VECTOR:
+      list = VAL_VEC(val);
+      break;
+    default:
+      exception = malval_string("cannot take last of non-container");
+      return NIL;
+  }
+
+  while (list && list->tail) {
+    result = cons_weak(list->head, result);
+    list = list->tail;
+  }
+
+  list_reverse(&result);
+  MalVal *rv = malval_list(result);
+  list_release(result);
+  return rv;
 }
 
 static MalVal *builtin_rest(List *args, ENV *env)
@@ -1042,6 +1101,31 @@ static MalVal *builtin_seq(List *args, ENV *env)
   return rv;
 }
 
+static MalType types_gensym[] = {TYPE_STRING, 0};
+MalVal *builtin_gensym(List *args, ENV *env)
+{
+  static long i = 0;
+  char *pfx;
+
+  if (!builtins_args_check(args, 0, 1, types_gensym))
+    return NIL;
+
+  if (args && VAL_TYPE(args->head) == TYPE_STRING) {
+    pfx = VAL_STRING(args->head);
+  } else {
+    pfx = "gensym_";
+  }
+
+  unsigned lpfx = strlen(pfx);
+  char *buf = alloca(lpfx + 20);
+
+  strcpy(buf, pfx);
+
+  itoa(i++, &buf[lpfx], 10);
+
+  return malval_symbol(buf);
+}
+
 static MalVal *builtin_conj(List *args, ENV *env)
 {
   if (!args)
@@ -1123,6 +1207,44 @@ static MalVal *builtin_with_meta(List *args, ENV *env)
   return result;
 }
 
+
+static MalVal *builtin_debug_info(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 0, 0, NULL))
+    return NIL;
+
+  unsigned count, size;
+  List *result = NULL, *values;
+
+  value_info(&count, &size);
+  values = cons_weak(malval_keyword(":count"), 
+           cons_weak(malval_number(count),
+           cons_weak(malval_keyword(":size"),
+           cons_weak(malval_number(size),
+           NULL))));
+
+  result = cons_weak(malval_keyword(":values"),
+           cons_weak(malval_map(values),
+           result));
+  list_release(values);
+
+  heap_info(&count, &size);
+  values = cons_weak(malval_keyword(":count"), 
+           cons_weak(malval_number(count),
+           cons_weak(malval_keyword(":size"),
+           cons_weak(malval_number(size),
+           NULL))));
+
+  result = cons_weak(malval_keyword(":heap"),
+           cons_weak(malval_map(values),
+           result));
+  list_release(values);
+
+  MalVal *rv = malval_map(result);
+  list_release(result);
+  return rv;
+}
+
 struct ns core_ns[] = {
   {"+", plus},
   {"-", minus},
@@ -1138,6 +1260,8 @@ struct ns core_ns[] = {
   {"concat", builtin_concat},
   {"vec", builtin_vec},
   {"first", builtin_first},
+  {"last", builtin_last},
+  {"butlast", builtin_butlast},
   {"rest", builtin_rest},
   {"nth", builtin_nth},
   {"reverse", builtin_reverse},
@@ -1192,6 +1316,10 @@ struct ns core_ns[] = {
   {"string?", builtin_is_string},
   {"number?", builtin_is_number},
   {"seq", builtin_seq},
+
+  {"gensym", builtin_gensym},
+
+  {"debug-info", builtin_debug_info},
 
   {NULL, NULL},
 };

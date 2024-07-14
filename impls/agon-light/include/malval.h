@@ -84,6 +84,7 @@ MalVal *malval_create(MalType type);
 #define malval_nil() malval_create(TYPE_NIL)
 MalVal *malval_bool(bool);
 MalVal *malval_symbol(const char *);
+MalVal *malval_keyword(const char *);
 MalVal *malval_string(const char *);
 MalVal *malval_list(struct List*);
 MalVal *malval_vector(struct List*);

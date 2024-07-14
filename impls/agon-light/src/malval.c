@@ -7,6 +7,7 @@
 #include "str.h"
 
 #include <string.h>
+#include <alloca.h>
 
 
 MalVal *_nil, *_true, *_false;
@@ -26,6 +27,27 @@ MalVal *malval_symbol(const char *s)
   MalVal *val = malval_create(TYPE_SYMBOL);
   val->data.string = strdup(s);
   return val;
+}
+
+MalVal *malval_keyword(const char *s)
+{
+  char *buf;
+
+  if (s[0] == -1)
+    return malval_symbol(s);
+
+  if (s[0] == ':') {
+    buf = alloca(strlen(s) + 1);
+    strcpy(buf, s);
+    buf[0] = -1;
+  }
+  else {
+    buf = alloca(strlen(s) + 2);
+    buf[0] = -1;
+    strcpy(&buf[1], s);
+  }
+
+  return malval_symbol(buf);
 }
 
 MalVal *malval_string(const char *s)
