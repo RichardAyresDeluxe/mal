@@ -185,8 +185,8 @@ MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
     return NIL;
   }
 
-  list = cons(read_form(token, next), list);
-  list = cons(malval_symbol(name), list);
+  list = cons_weak(read_form(token, next), list);
+  list = cons_weak(malval_symbol(name), list);
   rv = malval_list(list);
   list_release(list);
   return rv;
