@@ -568,6 +568,10 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       if (strcmp(symbol, "try*") == 0) {
         return EVAL_try(tail, env);
       }
+
+      if (strcmp(symbol, "comment") == 0) {
+        return NIL;
+      }
     }
 
     /* otherwise treat as if it's a function call */
