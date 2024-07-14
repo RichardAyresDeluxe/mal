@@ -699,24 +699,12 @@ static void build_env(void)
 
 /* init mal code, separated by \f */
 char init[] = "\
-(def! not (fn* (a) (if a false true)))\f\
-(def! range\n\
-  (fn* ([end] (range 0 end))\n\
-       ([start end] (range start end 1))\n\
-       ([start end step]\n\
-        (if (< start end)\n\
-          (cons start (range (+ step start) end step))))))\f\
-(def! inc (fn* (a) (+ a 1)))\f\
-(def! dec (fn* (a) (- a 1)))\f\
-(def! reduce \n\
-  (fn* ([f val xs] (if (empty? xs) val (reduce f (f val (first xs)) (rest xs))))\n\
-       ([f xs] (reduce f (first xs) (rest xs)))))\f\
-(def! load-file\n\
-  (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\")))))\f\
-(defmacro! cond\n\
-  (fn*  (& xs)\n\
-        (if (> (count xs) 0)\n\
-          (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))\n\
+(defmacro! defn (fn* [name & body] `(def! ~name (fn* ~@body))))\f\
+(defmacro! defmacro (fn* [name & body] `(defmacro! ~name (fn* ~@body))))\f\
+(defmacro! def (fn* [name & body] `(def! ~name ~@body)))\f\
+(defn load-file\n\
+       [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\"))))\f\
+(load-file \"init.mal\")\
 ";
 
 int main(int argc, char **argv)
@@ -735,8 +723,7 @@ int main(int argc, char **argv)
 
   char *s = strtok(init, "\f");
   do {
-    char *out = rep(repl_env, s);
-    heap_free(out);
+    heap_free(rep(repl_env, s));
     s = strtok(NULL, "\f");
   } while(s);
 

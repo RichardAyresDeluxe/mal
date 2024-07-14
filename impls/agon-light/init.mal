@@ -1,0 +1,153 @@
+(defmacro let [&body] `(let* ~@body))
+(defmacro try [&body] `(try* ~@body))
+(defmacro catch [&body] `(catch* ~@body))
+(defmacro fn [&body] `(fn* ~@body))
+
+(defn partial
+  ([f] f)
+  ([f a]
+   (fn ([x] (f a x))
+       ([x y] (f a x y))
+       ([x y &zs] (apply f a x y zs))))
+  ([f a b]
+   (fn ([x] (f a b x))
+       ([x y] (f a b x y))
+       ([x y &zs] (apply f a b x y zs))))
+  ([f a b &cs]
+   (fn ([x] (apply f a b (conj cs x)))
+       ([x y] (f a b (conj cs x y)))
+       ([x y &zs] (apply f a b (concat cs [x y] zs))))))
+
+(defn comp
+  ([f g] (fn ([a] (f (g a)))
+             ([a b] (f (g a b)))
+             ([a b & more] (f (apply g a b more)))))
+  ([f g & gs]
+   (comp f (apply comp g gs))))
+
+(defn not [a] (if a false true))
+
+(defn complement
+  [f]
+  (fn 
+    ([a] (not (f a)))
+    ([a b] (not (f a b)))
+    ([a b & more] (not (apply f a b more)))))
+
+(defn not= [a b] (if (= a b) false true))
+
+(defn range
+   ([end] (range 0 end))
+   ([start end] (range start end 1))
+   ([start end step]
+    (if (< start end)
+      (cons start (range (+ step start) end step)))))
+
+(defn inc (a) (+ a 1))
+(defn dec (a) (- a 1))
+
+(defn reduce
+   ([f xs] (reduce f (first xs) (rest xs)))
+   ([f val xs]
+    (if (empty? xs)
+      val
+      (reduce f (f val (first xs)) (rest xs)))))
+
+(defmacro second [&xs] `(first (rest ~xs)))
+
+(defmacro if-not
+  ([a b] `(if ~a nil ~b))
+  ([a b c] `(if ~a ~c ~b)))
+
+(defmacro if-let
+  ([bindings then] `(if-let ~bindings ~then nil))
+  ([bindings then else]
+   (if (not= 2 (count bindings))
+    (throw "'if-let' requires 2 items in bindings vector")
+    (let* [sym (first bindings)
+           val (second bindings)]
+      `(let* [~sym ~val]
+         (if ~sym ~then ~else))))))
+
+(defmacro if-some
+  ([bindings then] `(if-some ~bindings ~then nil))
+  ([bindings then else]
+   (if (not= 2 (count bindings))
+     (throw "'if-some' requires 2 items in bindings vector")
+     (let* [sym (first bindings)
+            val (second bindings)
+            (if-not (nil? ~sym) ~then ~else)]))))
+
+(defmacro if-first
+  ([bindings then] `(if-first ~bindings ~then nil))
+  ([bindings then else]
+   (let [xs (gensym)
+         sym (first bindings)
+         val (second bindings)]
+     `(let [~xs ~val]
+        (if (seq ~xs) 
+          (let [~sym (first ~xs)]
+            ~body))))))
+
+;; "when" - why? just use "if" and "do"
+(defmacro when [p &body] `(if ~p (do ~@body)))
+(defmacro when-not [p &body] `(if-not ~p (do ~@body)))
+(defmacro when-let [bs & body] `(if-let ~bindings (do ~@body)))
+(defmacro when-some [bs & body] `(if-some ~bindings (do ~@body)))
+(defmacro when-first [bs & body] `(if-some ~bindings (do ~@body)))
+
+(defmacro or
+  ([] nil)
+  ([a] a)
+  ([a &more] (let [ora (gensym "or_")]
+               `(let [~ora ~a]
+                  (if ~ora ~ora (or ~@more))))))
+
+(defmacro and
+  ([] true)
+  ([a] a)
+  ([a &more] `(if ~a (and ~@more))))
+
+(defmacro cond
+  ([] nil)
+  ([a] a)
+  ([test then] `(if ~test ~then))
+  ([test then & rest]
+   `(if ~test ~then (cond ~@rest))))
+
+(defmacro case
+  ([test-expr] nil)
+  ([test-expr default] default)
+  ([test-expr comp-val expr]
+   (let [test-sym (gensym)]
+     `(let [~test-sym ~test-expr]
+       (if (= ~test-sym ~comp-val) ~expr))))
+  ([test-expr comp-val expr & rest]
+   (let [test-sym (gensym)]
+     `(let [~test-sym ~test-expr]
+       (if (= ~test-sym ~comp-val) ~expr (case ~test-sym ~@rest))))))
+
+(defmacro assert
+  [& body]
+  (let [body-str (gensym)]
+    `(if-not (do ~@body)
+      (let [~body-str (str (quote ~@body))]
+        (throw (str "assertion failed: (not" ~body-str ")"))))))
+
+(defn zero? [x] (= 0 x))
+
+(defn repeat
+  [n x]
+  (if-not (zero? n) (cons x (repeat (dec n ) x))))
+
+(defn peek
+  [coll]
+  (cond 
+    (list? coll) (first coll)
+    (vector? coll) (last coll)))
+
+(defn pop
+  [coll]
+  (cond
+    (list? coll) (rest coll)
+    (vector? coll) (vec (butlast coll))))
