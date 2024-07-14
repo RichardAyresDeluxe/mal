@@ -111,7 +111,6 @@
 (defmacro cond
   ([] nil)
   ([a] a)
-  ([test then] `(if ~test ~then))
   ([test then & rest]
    `(if ~test ~then (cond ~@rest))))
 
