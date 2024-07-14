@@ -343,9 +343,11 @@ static MalVal *EVAL_quasiquote_list(List *elt)
      && VAL_TYPE(VAL_LIST(elt->head)->head) == TYPE_SYMBOL
      && strcmp(VAL_LIST(elt->head)->head->data.string, "splice-unquote") == 0
     ) {
+      MalVal *vr = malval_list(result);
+      list_release(result);
       result = cons_weak(malval_symbol("concat"),
                          cons_weak(VAL_LIST(elt->head)->tail->head,
-                                   cons_weak(malval_list(result), NULL)));
+                                   cons_weak(vr, NULL)));
     }
     else {
       MalVal *val = EVAL_quasiquote(elt->head);
@@ -354,13 +356,17 @@ static MalVal *EVAL_quasiquote_list(List *elt)
         malval_reset_temp(val, NULL);
         return NIL;
       }
+      MalVal *vr = malval_list(result);
+      list_release(result);
       result = cons_weak(malval_symbol("cons"),
                          cons_weak(val,
-                                   cons_weak(malval_list(result), NULL)));
+                                   cons_weak(vr, NULL)));
     }
   }
 
-  return malval_list(result);
+  MalVal *rv = malval_list(result);
+  list_release(result);
+  return rv;
 }
 
 static MalVal *EVAL_quasiquote(MalVal *ast)
@@ -403,8 +409,11 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
   }
 
   if (VAL_TYPE(ast) == TYPE_MAP || VAL_TYPE(ast) == TYPE_SYMBOL) {
-    return malval_list(cons_weak(malval_symbol("quote"),
-                                 cons_weak(ast, NULL)));
+    List *l = cons_weak(malval_symbol("quote"),
+                        cons_weak(ast, NULL));
+    MalVal *rv = malval_list(l);
+    list_release(l);
+    return rv;
   }
 
   return ast;
@@ -656,7 +665,10 @@ static void cleanup(void)
 {
   env_flush(repl_env);
 
-  gc(TRUE, TRUE);
+  malval_reset_temp(_nil, NULL);
+  malval_reset_temp(_true, NULL);
+  malval_reset_temp(_false, NULL);
+
   gc(TRUE, TRUE);
   gc(TRUE, TRUE);
 
@@ -709,15 +721,12 @@ char init[] = "\
 
 int main(int argc, char **argv)
 {
-  /* Largely to keep valgrind happy */
-  atexit(cleanup);
-
   _nil = malval_nil();
   _true = malval_bool(TRUE);
   _false = malval_bool(FALSE);
-  gc_pop();
-  gc_pop();
-  gc_pop();
+
+  /* Largely to keep valgrind happy */
+  atexit(cleanup);
 
   build_env();
 
@@ -763,7 +772,9 @@ int main(int argc, char **argv)
     }
     puts(s);
     heap_free(s);
-    // gc(FALSE, TRUE);
+    s = rep(repl_env, "(debug-info)");
+    puts(s);
+    heap_free(s);
   }
 }
 

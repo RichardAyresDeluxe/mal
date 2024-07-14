@@ -256,7 +256,9 @@ static MalVal *builtin_cons(List *args, ENV *env)
 
   list = cons(args->head, list);
 
-  return malval_list(list);
+  MalVal *rv = malval_list(list);
+  list_release(list);
+  return rv;
 }
 
 static MalVal *builtin_concat(List *args, ENV *env)

@@ -6,7 +6,7 @@
 #include <string.h>
 
 
-#define MAP_INIT_TABLE_SIZE 9
+#define MAP_INIT_TABLE_SIZE 11
 
 struct entry {
   struct entry *next;
