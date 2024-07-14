@@ -445,6 +445,18 @@ static MalVal *EVAL_try(List *body, ENV *env)
   return result;
 }
 
+static void EVAL_kw_function(MalVal *kw, List *args, MalVal** ast)
+{
+  List *kwl = cons_weak(kw, NULL);
+  List *result = cons_weak(malval_symbol("get"),
+                   list_concat(args, kwl));
+
+  *ast = malval_list(result);
+
+  list_release(kwl);
+  list_release(result);
+}
+
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
   if (exception)
@@ -478,6 +490,17 @@ MalVal *EVAL(MalVal *ast, ENV *env)
     List *tail = list->tail;
 
     if (head->type == TYPE_SYMBOL) {
+
+      if (VAL_IS_KEYWORD(head)) {
+        /* We have a keyword as the first item - rearrange so it's a get */
+        EVAL_kw_function(head, tail, &ast);
+        if (exception) {
+          env_release(env);
+          return NIL;
+        }
+        continue;
+      }
+
       /* check for special forms */
       const char *symbol = head->data.string;
       if (symbol[0] == 'd') {
