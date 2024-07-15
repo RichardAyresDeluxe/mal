@@ -79,9 +79,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
       evaluated = cons_weak(val, evaluated);
     }
     linked_list_reverse((void**)&evaluated);
-    MalVal *value = malval_list(evaluated);
-    list_release(evaluated);
-    return value;
+    return malval_list_weak(evaluated);
   }
 
   if (ast->type == TYPE_VECTOR)
@@ -337,17 +335,16 @@ static MalVal *EVAL_quasiquote(MalVal *ast);
 static MalVal *EVAL_quasiquote_list(List *elt)
 {
   List *result = NULL;
+
   for (; elt; elt = elt->tail) {
     if (VAL_TYPE(elt->head) == TYPE_LIST
      && !list_is_empty(VAL_LIST(elt->head))
      && VAL_TYPE(VAL_LIST(elt->head)->head) == TYPE_SYMBOL
      && strcmp(VAL_LIST(elt->head)->head->data.string, "splice-unquote") == 0
     ) {
-      MalVal *vr = malval_list(result);
-      list_release(result);
       result = cons_weak(malval_symbol("concat"),
                          cons_weak(VAL_LIST(elt->head)->tail->head,
-                                   cons_weak(vr, NULL)));
+                                   cons_weak(malval_list_weak(result), NULL)));
     }
     else {
       MalVal *val = EVAL_quasiquote(elt->head);
@@ -356,17 +353,13 @@ static MalVal *EVAL_quasiquote_list(List *elt)
         malval_reset_temp(val, NULL);
         return NIL;
       }
-      MalVal *vr = malval_list(result);
-      list_release(result);
       result = cons_weak(malval_symbol("cons"),
                          cons_weak(val,
-                                   cons_weak(vr, NULL)));
+                                   cons_weak(malval_list_weak(result), NULL)));
     }
   }
 
-  MalVal *rv = malval_list(result);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalVal *EVAL_quasiquote(MalVal *ast)
@@ -403,17 +396,13 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
       malval_reset_temp(val, NULL);
       return NIL;
     }
-    List * result = cons_weak(malval_symbol("vec"),
-                              cons_weak(val, NULL));
-    return malval_list(result);
+    return malval_list_weak(cons_weak(malval_symbol("vec"),
+                            cons_weak(val, NULL)));
   }
 
   if (VAL_TYPE(ast) == TYPE_MAP || VAL_TYPE(ast) == TYPE_SYMBOL) {
-    List *l = cons_weak(malval_symbol("quote"),
-                        cons_weak(ast, NULL));
-    MalVal *rv = malval_list(l);
-    list_release(l);
-    return rv;
+    return malval_list_weak(cons_weak(malval_symbol("quote"),
+                            cons_weak(ast, NULL)));
   }
 
   return ast;
@@ -756,8 +745,7 @@ int main(int argc, char **argv)
       args = cons_weak(malval_string(argv[arg]), args);
 
     linked_list_reverse((void**)&args);
-    env_set(repl_env, "*ARGV*", malval_list(args));
-    list_release(args);
+    env_set(repl_env, "*ARGV*", malval_list_weak(args));
 
     char *s = rep(repl_env, input);
     heap_free(input);

@@ -156,9 +156,7 @@ MalVal *read_list(lex_token_t *token, lex_token_t **next)
 
   linked_list_reverse((void**)&list);
 
-  MalVal *rv = malval_list(list);
-  list_release(list);
-  return rv;
+  return malval_list_weak(list);
 }
 
 MalVal *read_vector(lex_token_t *token, lex_token_t **next)
@@ -177,37 +175,29 @@ MalVal *read_map(lex_token_t *token, lex_token_t **next)
 
 MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next)
 {
-  MalVal *rv;
-  List *list = NULL;
-
   if (!token) {
     err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");
     return NIL;
   }
 
+  List *list = NULL;
   list = cons_weak(read_form(token, next), list);
   list = cons_weak(malval_symbol(name), list);
-  rv = malval_list(list);
-  list_release(list);
-  return rv;
+  return malval_list_weak(list);
 }
 
 MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next)
 {
-  MalVal *rv;
-  List *list = NULL;
-
   if (!token) {
     err_warning(ERR_LEXER_ERROR, "out of tokens in reader macro");
     return malval_nil();
   }
 
-  list = cons(read_form(token, &token), list);
-  list = cons(read_form(token, next), list);
-  list = cons(malval_symbol("with-meta"), list);
-  rv = malval_list(list);
-  list_release(list);
-  return rv;
+  List *list = NULL;
+  list = cons_weak(read_form(token, &token), list);
+  list = cons_weak(read_form(token, next), list);
+  list = cons_weak(malval_symbol("with-meta"), list);
+  return malval_list_weak(list);
 }
 
 static int token_depth(lex_token_t *tok)

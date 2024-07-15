@@ -245,13 +245,11 @@ static MalVal *core_cons(List *args, ENV *env)
   if (!builtins_args_check(args, 2, 2, NULL))
     return NIL;
 
-  if (!VAL_IS_NIL(args->tail->head) && !VAL_IS_CONTAINER(args->tail->head)) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "second argument must be a container or nil");
-    return NIL;
-  }
-
   List *list = NULL;
   switch(VAL_TYPE(args->tail->head)) {
+    case TYPE_NIL:
+      list = NULL;
+      break;
     case TYPE_LIST:
       list = VAL_LIST(args->tail->head);
       break;
@@ -263,11 +261,7 @@ static MalVal *core_cons(List *args, ENV *env)
       return NIL;
   }
 
-  list = cons(args->head, list);
-
-  MalVal *rv = malval_list(list);
-  list_release(list);
-  return rv;
+  return malval_list_weak(cons(args->head, list));
 }
 
 static MalVal *core_concat(List *args, ENV *env)
@@ -286,9 +280,7 @@ static MalVal *core_concat(List *args, ENV *env)
     args = args->tail;
   }
 
-  MalVal *rv = malval_list(result);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalVal *core_vec(List *args, ENV *env)
@@ -504,9 +496,7 @@ static MalVal *core_butlast(List *args, ENV *env)
   }
 
   list_reverse(&result);
-  MalVal *rv = malval_list(result);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalVal *core_rest(List *args, ENV *env)
@@ -539,9 +529,7 @@ static MalVal *core_reverse(List *args, ENV *env)
     result = cons_weak(input->head, result);
   }
 
-  MalVal *rv = malval_list(result);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
@@ -559,9 +547,7 @@ static MalVal *core_map(List *args, ENV *env)
   }
 
   linked_list_reverse((void**)&result);
-  MalVal *rv = malval_list(result);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalVal *core_gc(List *args, ENV *env)
@@ -981,10 +967,8 @@ static MalVal *core_keys(List *args, ENV *env)
     result = cons_weak(entry->head, result);
   }
 
-  MalVal *rv = malval_list(result);
   list_release(normalised);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalVal *core_vals(List *args, ENV *env)
@@ -998,10 +982,8 @@ static MalVal *core_vals(List *args, ENV *env)
     result = cons_weak(entry->tail->head, result);
   }
 
-  MalVal *rv = malval_list(result);
   list_release(normalised);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalVal *core_readline(List *args, ENV *env)
@@ -1107,9 +1089,7 @@ static MalVal *core_seq(List *args, ENV *env)
       return NIL;
   }
 
-  MalVal *rv = malval_list(result);
-  list_release(result);
-  return rv;
+  return malval_list_weak(result);
 }
 
 static MalType types_gensym[] = {TYPE_STRING, 0};
@@ -1158,9 +1138,7 @@ static MalVal *core_conj(List *args, ENV *env)
     for (List *arg = args->tail; arg; arg = arg->tail)
       result = cons_weak(arg->head, result);
 
-    MalVal *rv = malval_list(result);
-    list_release(result);
-    return rv;
+    return malval_list_weak(result);
   }
 
   exception = malval_string("not a container");

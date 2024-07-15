@@ -58,13 +58,18 @@ MalVal *malval_string(const char *s)
   return val;
 }
 
-MalVal *malval_list(List *list)
+MalVal *malval_list_weak(List *list)
 {
   MalVal *val = malval_create(TYPE_LIST);
   val->data.list = heap_malloc(sizeof(struct ListWithMeta));
-  val->data.list->list = list_acquire(list);
+  val->data.list->list = list;
   val->data.list->meta = NIL;
   return val;
+}
+
+MalVal *malval_list(List *list)
+{
+  return malval_list_weak(list_acquire(list));
 }
 
 MalVal *malval_vector(List *list)
