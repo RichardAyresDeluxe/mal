@@ -93,6 +93,8 @@ MalVal *malval_function(struct Function*);
 MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
 
+uint16_t malval_hash(MalVal*);
+
 void malval_reset_temp(MalVal *, void*);
 
 extern MalVal *_nil, *_true, *_false;

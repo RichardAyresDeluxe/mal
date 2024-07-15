@@ -33,6 +33,8 @@ extern MalVal *function_create_builtin(builtin_fn*);
 extern void function_destroy(Function*);
 extern Function *function_duplicate(Function*);
 
+extern uint16_t function_hash(Function*);
+
 extern void function_gc_mark(Function*, void*);
 
 extern MalVal *apply(Function*, List*);

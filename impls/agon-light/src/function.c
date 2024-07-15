@@ -245,3 +245,18 @@ void function_gc_mark(Function *fn, void *data)
     gc_mark(body->body, data);
   }
 }
+
+uint16_t function_hash(Function *f)
+{
+  unsigned hv = 97;
+
+  if (f->is_builtin)
+    return (hv * (unsigned long)(f->fn.builtin)) % 65521;
+
+  for (struct Body *body = f->fn.bodies; body; body = body->next) {
+    hv = (hv * 29 + list_hash(body->binds)) % 65521;
+    hv = (hv * 23 + malval_hash(body->body)) % 65521;
+  }
+
+  return hv;
+}

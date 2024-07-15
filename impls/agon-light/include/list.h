@@ -51,5 +51,6 @@ static inline List *list_reverse(List **list) {
 }
 
 extern MalVal *list_nth(List *, unsigned);
+extern uint16_t list_hash(List *list);
 
 #endif /* _list_H */

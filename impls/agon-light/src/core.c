@@ -1218,6 +1218,13 @@ static MalVal *core_with_meta(List *args, ENV *env)
   return result;
 }
 
+static MalVal *core_hash(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  return malval_number(malval_hash(args->head));
+}
 
 static MalVal *core_debug_info(List *args, ENV *env)
 {
@@ -1330,6 +1337,8 @@ struct ns core_ns[] = {
   {"string?", core_is_string},
   {"number?", core_is_number},
   {"seq", core_seq},
+
+  {"hash", core_hash},
 
   {"gensym", core_gensym},
 

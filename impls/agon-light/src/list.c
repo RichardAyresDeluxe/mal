@@ -155,3 +155,14 @@ MalVal *list_nth(List *list, unsigned idx)
     list = list->tail;
   return list ? list->head : NULL;
 }
+
+uint16_t list_hash(List *list)
+{
+  unsigned hv = 31;
+  while(list) {
+    hv = (hv * 31 + malval_hash(list->head));
+    list = list->tail;
+  }
+  return hv % 65521;
+}
+

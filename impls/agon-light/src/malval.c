@@ -5,6 +5,7 @@
 #include "function.h"
 #include "err.h"
 #include "str.h"
+#include "eval.h"
 
 #include <string.h>
 #include <alloca.h>
@@ -283,4 +284,55 @@ bool malval_equals(MalVal *a, MalVal *b)
   }
 
   return FALSE;
+}
+
+#define HASH_INIT_STRING  53
+#define HASH_INIT_SYMBOL  59
+#define HASH_INIT_VECTOR  37
+#define HASH_INIT_MAP     41
+#define HASH_INIT_ATOM    61
+
+static uint16_t string_hash(unsigned p, const char *s)
+{
+  unsigned m = 65521;  // highest prime inside 16 bits
+  unsigned hv = 0;
+  unsigned p_pow = 1;
+  for (const char *c = s; *c; c++) {
+    hv = (hv + (*c - 'a' + 1) * p_pow) % m;
+    p_pow = (p_pow * (uint32_t)p) % m;
+  }
+
+  return (uint16_t)hv;
+}
+
+#define vec_hash(vec) ((HASH_INIT_VECTOR * list_hash(vec)) % 65521)
+#define map_hash(map) ((HASH_INIT_MAP * list_hash(map)) % 65521)
+
+uint16_t malval_hash(MalVal *val)
+{
+  switch(VAL_TYPE(val)) {
+    case TYPE_NIL:
+      return 0;
+    case TYPE_STRING:
+      return string_hash(HASH_INIT_STRING, VAL_STRING(val));
+    case TYPE_SYMBOL:
+      return string_hash(HASH_INIT_SYMBOL, VAL_STRING(val));
+    case TYPE_NUMBER:
+      return (251L * VAL_NUMBER(val)) % 65521;
+    case TYPE_LIST:
+      return list_hash(VAL_LIST(val));
+    case TYPE_VECTOR:
+      return vec_hash(VAL_VEC(val));
+    case TYPE_MAP:
+      return map_hash(VAL_MAP(val));
+    case TYPE_BOOL:
+      return (VAL_IS_FALSE(val) ? 7 * 31 : 7 * 47);
+    case TYPE_ATOM:
+      return (malval_hash(VAL_ATOM(val)) * HASH_INIT_ATOM) % 65521;
+    case TYPE_FUNCTION:
+      return function_hash(VAL_FUNCTION(val));
+    default:
+      exception = malval_string("Cannot calculate hash of object");
+      return 0;
+  }
 }
