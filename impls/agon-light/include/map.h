@@ -6,6 +6,7 @@
 struct Map;
 typedef struct Map Map;
 
+Map *map_createN(unsigned init_size);
 Map *map_create(void);
 void map_destroy(Map*);
 void map_add(Map *, const char *key, MalVal *value);

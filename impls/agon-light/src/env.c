@@ -11,7 +11,7 @@ static void env_destroy(ENV *env);
 ENV *env_create(ENV *parent, List *binds, List *values)
 {
   ENV *env = heap_malloc(sizeof(ENV));
-  env->map = map_create();
+  env->map = map_createN(parent ? list_count(binds) : 251);
   env->ref_count = 1;
   env->parent = env_acquire(parent);
   

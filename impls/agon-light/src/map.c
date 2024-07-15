@@ -5,8 +5,7 @@
 
 #include <string.h>
 
-
-#define MAP_INIT_TABLE_SIZE 11
+static unsigned primes[] = {3, 7, 17, 37, 59, 127, 251};
 
 struct entry {
   struct entry *next;
@@ -33,12 +32,27 @@ static uint16_t string_hash(const char *s)
   return (uint16_t)hv;
 }
 
-Map *map_create(void)
+static unsigned next_prime(unsigned p)
+{
+  unsigned nprimes = sizeof(primes)/sizeof(primes[0]);
+  for (unsigned i = 0; i < nprimes; i++) {
+    if (primes[i] >= p)
+      return primes[i];
+  }
+  return primes[nprimes - 1];
+}
+
+Map *map_createN(unsigned init_size)
 {
   Map *map = heap_malloc(sizeof(Map));
-  map->table_size = MAP_INIT_TABLE_SIZE;
+  map->table_size = next_prime(init_size);
   map->table = heap_calloc(map->table_size, sizeof(struct entry*));
   return map;
+}
+
+Map *map_create(void)
+{
+  return map_createN(primes[0]);
 }
 
 void map_destroy(Map *map)
