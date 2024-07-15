@@ -195,7 +195,7 @@ static MalVal *morethan_or_equal(List *args, ENV *env)
   return args->head->data.number >= args->tail->head->data.number ? T : F;
 }
 
-static MalVal *builtin_mod(List *args, ENV *env)
+static MalVal *core_mod(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_numbers))
     return NIL;
@@ -204,7 +204,7 @@ static MalVal *builtin_mod(List *args, ENV *env)
 }
 
 static MalType types_apply[] = {TYPE_FUNCTION, 0};
-static MalVal *builtin_apply(List *args, ENV *env)
+static MalVal *core_apply(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, ARGS_MAX, types_apply))
     return NIL;
@@ -235,12 +235,12 @@ static MalVal *builtin_apply(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_list(List *args, ENV *env)
+static MalVal *core_list(List *args, ENV *env)
 {
   return malval_list(list_acquire(args));
 }
 
-static MalVal *builtin_cons(List *args, ENV *env)
+static MalVal *core_cons(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, NULL))
     return NIL;
@@ -270,7 +270,7 @@ static MalVal *builtin_cons(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_concat(List *args, ENV *env)
+static MalVal *core_concat(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, ARGS_MAX, types_containers))
     return NIL;
@@ -291,7 +291,7 @@ static MalVal *builtin_concat(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_vec(List *args, ENV *env)
+static MalVal *core_vec(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_containers))
     return NIL;
@@ -306,7 +306,7 @@ static MalVal *builtin_vec(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_is_list(List *args, ENV *env)
+static MalVal *core_is_list(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -314,7 +314,7 @@ static MalVal *builtin_is_list(List *args, ENV *env)
   return VAL_TYPE(args->head) == TYPE_LIST ? T : F;
 }
 
-static MalVal *builtin_is_empty(List *args, ENV *env)
+static MalVal *core_is_empty(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -336,7 +336,7 @@ static MalVal *builtin_is_empty(List *args, ENV *env)
   return F;
 }
 
-static MalVal *builtin_count(List *args, ENV *env)
+static MalVal *core_count(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -357,7 +357,7 @@ static MalVal *builtin_count(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_equals(List *args, ENV *env)
+static MalVal *core_equals(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, ARGS_MAX, NULL))
     return NIL;
@@ -388,7 +388,7 @@ static void pr_str_helper(MalVal *val, void *_p)
   heap_free(s);
 }
 
-static MalVal *builtin_pr_str(List *args, ENV *env)
+static MalVal *core_pr_str(List *args, ENV *env)
 {
   struct pr_struct pr = { NULL, " ", TRUE };
 
@@ -399,7 +399,7 @@ static MalVal *builtin_pr_str(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_str(List *args, ENV *env)
+static MalVal *core_str(List *args, ENV *env)
 {
   struct pr_struct pr = { NULL, NULL, FALSE };
 
@@ -410,7 +410,7 @@ static MalVal *builtin_str(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_prn(List *args, ENV *env)
+static MalVal *core_prn(List *args, ENV *env)
 {
   struct pr_struct pr = { NULL, " ", TRUE };
 
@@ -422,7 +422,7 @@ static MalVal *builtin_prn(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_println(List *args, ENV *env)
+static MalVal *core_println(List *args, ENV *env)
 {
   struct pr_struct pr = { NULL, " ", FALSE };
 
@@ -434,7 +434,7 @@ static MalVal *builtin_println(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_first(List *args, ENV *env)
+static MalVal *core_first(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
     return NIL;
@@ -451,7 +451,7 @@ static MalVal *builtin_first(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_last(List *args, ENV *env)
+static MalVal *core_last(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
     return NIL;
@@ -477,7 +477,7 @@ static MalVal *builtin_last(List *args, ENV *env)
   return list ? list->head : NIL;
 }
 
-static MalVal *builtin_butlast(List *args, ENV *env)
+static MalVal *core_butlast(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
     return NIL;
@@ -509,7 +509,7 @@ static MalVal *builtin_butlast(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_rest(List *args, ENV *env)
+static MalVal *core_rest(List *args, ENV *env)
 {
   if (args && VAL_IS_NIL(args->head))
     return malval_list(NULL);
@@ -529,7 +529,7 @@ static MalVal *builtin_rest(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_reverse(List *args, ENV *env)
+static MalVal *core_reverse(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_containers))
     return NIL;
@@ -545,7 +545,7 @@ static MalVal *builtin_reverse(List *args, ENV *env)
 }
 
 static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
-static MalVal *builtin_map(List *args, ENV *env)
+static MalVal *core_map(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_map))
     return NIL;
@@ -564,7 +564,7 @@ static MalVal *builtin_map(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_gc(List *args, ENV *env)
+static MalVal *core_gc(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, 0, NULL))
     return NIL;
@@ -576,7 +576,7 @@ static MalVal *builtin_gc(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_read_string(List *args, ENV *env)
+static MalVal *core_read_string(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
@@ -584,7 +584,7 @@ static MalVal *builtin_read_string(List *args, ENV *env)
   return read_string(args->head->data.string);
 }
 
-static MalVal *builtin_slurp(List *args, ENV *env)
+static MalVal *core_slurp(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
@@ -613,7 +613,7 @@ static MalVal *builtin_slurp(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_atom(List *args, ENV *env)
+static MalVal *core_atom(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -621,7 +621,7 @@ static MalVal *builtin_atom(List *args, ENV *env)
   return malval_atom(args->head);
 }
 
-static MalVal *builtin_is_atom(List *args, ENV *env)
+static MalVal *core_is_atom(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -630,7 +630,7 @@ static MalVal *builtin_is_atom(List *args, ENV *env)
 }
 
 static MalType types_atom[] = {TYPE_ATOM, 0};
-static MalVal *builtin_deref(List *args, ENV *env)
+static MalVal *core_deref(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_atom))
     return NIL;
@@ -638,7 +638,7 @@ static MalVal *builtin_deref(List *args, ENV *env)
   return args->head->data.atom;
 }
 
-static MalVal *builtin_reset(List *args, ENV *env)
+static MalVal *core_reset(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_atom))
     return NIL;
@@ -649,7 +649,7 @@ static MalVal *builtin_reset(List *args, ENV *env)
 }
 
 static MalType types_swap[] = {TYPE_ATOM, TYPE_FUNCTION, 0};
-static MalVal *builtin_swap(List *args, ENV *env)
+static MalVal *core_swap(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, ARGS_MAX, types_swap))
     return NIL;
@@ -665,7 +665,7 @@ static MalVal *builtin_swap(List *args, ENV *env)
 }
 
 static MalType types_nth[] = {METATYPE_CONTAINER, TYPE_NUMBER, 0};
-static MalVal *builtin_nth(List *args, ENV *env)
+static MalVal *core_nth(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_nth))
     return NIL;
@@ -690,7 +690,7 @@ static MalVal *builtin_nth(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_is_nil(List *args, ENV *env)
+static MalVal *core_is_nil(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -698,7 +698,7 @@ static MalVal *builtin_is_nil(List *args, ENV *env)
   return VAL_IS_NIL(args->head) ? T : F;
 }
 
-static MalVal *builtin_is_true(List *args, ENV *env)
+static MalVal *core_is_true(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -706,7 +706,7 @@ static MalVal *builtin_is_true(List *args, ENV *env)
   return VAL_IS_TRUE(args->head) ? T : F;
 }
 
-static MalVal *builtin_is_false(List *args, ENV *env)
+static MalVal *core_is_false(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -714,7 +714,7 @@ static MalVal *builtin_is_false(List *args, ENV *env)
   return VAL_IS_FALSE(args->head) ? T : F;
 }
 
-static MalVal *builtin_is_symbol(List *args, ENV *env)
+static MalVal *core_is_symbol(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -727,7 +727,7 @@ static MalVal *builtin_is_symbol(List *args, ENV *env)
   return F;
 }
 
-static MalVal *builtin_is_keyword(List *args, ENV *env)
+static MalVal *core_is_keyword(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -735,7 +735,7 @@ static MalVal *builtin_is_keyword(List *args, ENV *env)
   return VAL_IS_KEYWORD(args->head) ? T : F;
 }
 
-static MalVal *builtin_throw(List *args, ENV *env)
+static MalVal *core_throw(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -745,7 +745,7 @@ static MalVal *builtin_throw(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_symbol(List *args, ENV *env)
+static MalVal *core_symbol(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
@@ -754,7 +754,7 @@ static MalVal *builtin_symbol(List *args, ENV *env)
 }
 
 static MalType types_keyword[] = {METATYPE_STRING, 0};
-static MalVal *builtin_keyword(List *args, ENV *env)
+static MalVal *core_keyword(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_keyword))
     return NIL;
@@ -769,12 +769,12 @@ static MalVal *builtin_keyword(List *args, ENV *env)
   return malval_symbol(kw);
 }
 
-static MalVal *builtin_vector(List *args, ENV *env)
+static MalVal *core_vector(List *args, ENV *env)
 {
   return malval_vector(args);
 }
 
-static MalVal *builtin_is_vector(List *args, ENV *env)
+static MalVal *core_is_vector(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -782,7 +782,7 @@ static MalVal *builtin_is_vector(List *args, ENV *env)
   return VAL_TYPE(args->head) == TYPE_VECTOR ? T : F;
 }
 
-static MalVal *builtin_is_sequential(List *args, ENV *env)
+static MalVal *core_is_sequential(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -790,7 +790,7 @@ static MalVal *builtin_is_sequential(List *args, ENV *env)
   return (VAL_TYPE(args->head) == TYPE_VECTOR || VAL_TYPE(args->head) == TYPE_LIST) ? T : F;
 }
 
-static MalVal *builtin_hash_map(List *args, ENV *env)
+static MalVal *core_hash_map(List *args, ENV *env)
 {
   if ((list_count(args) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
@@ -799,7 +799,7 @@ static MalVal *builtin_hash_map(List *args, ENV *env)
   return malval_map(list_acquire(args));
 }
 
-static MalVal *builtin_is_map(List *args, ENV *env)
+static MalVal *core_is_map(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -864,7 +864,7 @@ static MalVal *assoc_vec(List *args, ENV *env)
   return val;
 }
 
-static MalVal *builtin_assoc(List *args, ENV *env)
+static MalVal *core_assoc(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, ARGS_MAX, types_container))
     return NIL;
@@ -893,7 +893,7 @@ static List *dissoc_key(List *map, MalVal *key)
 }
 
 static MalType types_dissoc[] = {TYPE_MAP, 0};
-static MalVal *builtin_dissoc(List *args, ENV *env)
+static MalVal *core_dissoc(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, ARGS_MAX, types_dissoc))
     return NIL;
@@ -913,7 +913,7 @@ static MalVal *builtin_dissoc(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_get(List *args, ENV *env)
+static MalVal *core_get(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_container))
     return NIL;
@@ -943,7 +943,7 @@ static MalVal *builtin_get(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_contains(List *args, ENV *env)
+static MalVal *core_contains(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_container))
     return NIL;
@@ -970,7 +970,7 @@ static MalVal *builtin_contains(List *args, ENV *env)
 }
 
 static MalType types_hashmap[] = {TYPE_MAP, 0};
-static MalVal *builtin_keys(List *args, ENV *env)
+static MalVal *core_keys(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_hashmap))
     return NIL;
@@ -987,7 +987,7 @@ static MalVal *builtin_keys(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_vals(List *args, ENV *env)
+static MalVal *core_vals(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_hashmap))
     return NIL;
@@ -1004,7 +1004,7 @@ static MalVal *builtin_vals(List *args, ENV *env)
   return rv;
 }
 
-static MalVal *builtin_readline(List *args, ENV *env)
+static MalVal *core_readline(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
@@ -1024,7 +1024,7 @@ static MalVal *builtin_readline(List *args, ENV *env)
 #endif
 }
 
-static MalVal *builtin_time_ms(List *args, ENV *env)
+static MalVal *core_time_ms(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, 0, NULL))
     return NIL;
@@ -1046,7 +1046,7 @@ static MalVal *builtin_time_ms(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_is_fn(List *args, ENV *env)
+static MalVal *core_is_fn(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -1054,7 +1054,7 @@ static MalVal *builtin_is_fn(List *args, ENV *env)
   return (VAL_TYPE(args->head) == TYPE_FUNCTION && VAL_FUNCTION(args->head)->is_macro == 0) ? T : F;
 }
 
-static MalVal *builtin_is_macro(List *args, ENV *env)
+static MalVal *core_is_macro(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -1062,7 +1062,7 @@ static MalVal *builtin_is_macro(List *args, ENV *env)
   return (VAL_TYPE(args->head) == TYPE_FUNCTION && VAL_FUNCTION(args->head)->is_macro == 1) ? T : F;
 }
 
-static MalVal *builtin_is_string(List *args, ENV *env)
+static MalVal *core_is_string(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -1070,7 +1070,7 @@ static MalVal *builtin_is_string(List *args, ENV *env)
   return VAL_TYPE(args->head) == TYPE_STRING ? T : F;
 }
 
-static MalVal *builtin_is_number(List *args, ENV *env)
+static MalVal *core_is_number(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -1078,7 +1078,7 @@ static MalVal *builtin_is_number(List *args, ENV *env)
   return VAL_TYPE(args->head) == TYPE_NUMBER ? T : F;
 }
 
-static MalVal *builtin_seq(List *args, ENV *env)
+static MalVal *core_seq(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -1113,7 +1113,7 @@ static MalVal *builtin_seq(List *args, ENV *env)
 }
 
 static MalType types_gensym[] = {TYPE_STRING, 0};
-MalVal *builtin_gensym(List *args, ENV *env)
+MalVal *core_gensym(List *args, ENV *env)
 {
   static long i = 0;
   char *pfx;
@@ -1137,7 +1137,7 @@ MalVal *builtin_gensym(List *args, ENV *env)
   return malval_symbol(buf);
 }
 
-static MalVal *builtin_conj(List *args, ENV *env)
+static MalVal *core_conj(List *args, ENV *env)
 {
   if (!args)
     return malval_vector(NULL);
@@ -1167,7 +1167,7 @@ static MalVal *builtin_conj(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_meta(List *args, ENV *env)
+static MalVal *core_meta(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
@@ -1186,7 +1186,7 @@ static MalVal *builtin_meta(List *args, ENV *env)
   return NIL;
 }
 
-static MalVal *builtin_with_meta(List *args, ENV *env)
+static MalVal *core_with_meta(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, NULL))
     return NIL;
@@ -1219,7 +1219,7 @@ static MalVal *builtin_with_meta(List *args, ENV *env)
 }
 
 
-static MalVal *builtin_debug_info(List *args, ENV *env)
+static MalVal *core_debug_info(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, 0, NULL))
     return NIL;
@@ -1263,77 +1263,77 @@ struct ns core_ns[] = {
   {"-", minus},
   {"*", multiply},
   {"/", divide},
-  {"mod", builtin_mod},
-  {"=", builtin_equals},
+  {"mod", core_mod},
+  {"=", core_equals},
   {"<", lessthan},
   {"<=", lessthan_or_equal},
   {">", morethan},
   {">=", morethan_or_equal},
-  {"apply", builtin_apply},
-  {"cons", builtin_cons},
-  {"concat", builtin_concat},
-  {"vec", builtin_vec},
-  {"first", builtin_first},
-  {"last", builtin_last},
-  {"butlast", builtin_butlast},
-  {"rest", builtin_rest},
-  {"nth", builtin_nth},
-  {"reverse", builtin_reverse},
-  {"map", builtin_map},
-  {"list", builtin_list},
-  {"list?", builtin_is_list},
-  {"empty?", builtin_is_empty},
-  {"count", builtin_count},
-  {"nil?", builtin_is_nil},
-  {"true?", builtin_is_true},
-  {"false?", builtin_is_false},
-  {"symbol", builtin_symbol},
-  {"symbol?", builtin_is_symbol},
-  {"keyword", builtin_keyword},
-  {"keyword?", builtin_is_keyword},
-  {"vector", builtin_vector},
-  {"vector?", builtin_is_vector},
-  {"hash-map", builtin_hash_map},
-  {"map?", builtin_is_map},
-  {"assoc", builtin_assoc},
-  {"dissoc", builtin_dissoc},
-  {"get", builtin_get},
-  {"contains?", builtin_contains},
-  {"keys", builtin_keys},
-  {"vals", builtin_vals},
-  {"sequential?", builtin_is_sequential},
-  {"pr-str", builtin_pr_str},
-  {"str", builtin_str},
-  {"prn", builtin_prn},
-  {"println", builtin_println},
-  {"gc", builtin_gc},
-  {"read-string", builtin_read_string},
-  {"slurp", builtin_slurp},
-  {"throw", builtin_throw},
+  {"apply", core_apply},
+  {"cons", core_cons},
+  {"concat", core_concat},
+  {"vec", core_vec},
+  {"first", core_first},
+  {"last", core_last},
+  {"butlast", core_butlast},
+  {"rest", core_rest},
+  {"nth", core_nth},
+  {"reverse", core_reverse},
+  {"map", core_map},
+  {"list", core_list},
+  {"list?", core_is_list},
+  {"empty?", core_is_empty},
+  {"count", core_count},
+  {"nil?", core_is_nil},
+  {"true?", core_is_true},
+  {"false?", core_is_false},
+  {"symbol", core_symbol},
+  {"symbol?", core_is_symbol},
+  {"keyword", core_keyword},
+  {"keyword?", core_is_keyword},
+  {"vector", core_vector},
+  {"vector?", core_is_vector},
+  {"hash-map", core_hash_map},
+  {"map?", core_is_map},
+  {"assoc", core_assoc},
+  {"dissoc", core_dissoc},
+  {"get", core_get},
+  {"contains?", core_contains},
+  {"keys", core_keys},
+  {"vals", core_vals},
+  {"sequential?", core_is_sequential},
+  {"pr-str", core_pr_str},
+  {"str", core_str},
+  {"prn", core_prn},
+  {"println", core_println},
+  {"gc", core_gc},
+  {"read-string", core_read_string},
+  {"slurp", core_slurp},
+  {"throw", core_throw},
   /* atom stuff: */
-  {"atom", builtin_atom},
-  {"atom?", builtin_is_atom},
-  {"deref", builtin_deref},
-  {"reset!", builtin_reset},
-  {"swap!", builtin_swap},
+  {"atom", core_atom},
+  {"atom?", core_is_atom},
+  {"deref", core_deref},
+  {"reset!", core_reset},
+  {"swap!", core_swap},
 
-  {"readline", builtin_readline},
+  {"readline", core_readline},
 
-  {"time-ms", builtin_time_ms},
+  {"time-ms", core_time_ms},
 
-  {"meta", builtin_meta},
-  {"with-meta", builtin_with_meta},
-  {"conj", builtin_conj},
+  {"meta", core_meta},
+  {"with-meta", core_with_meta},
+  {"conj", core_conj},
 
-  {"fn?", builtin_is_fn},
-  {"macro?", builtin_is_macro},
-  {"string?", builtin_is_string},
-  {"number?", builtin_is_number},
-  {"seq", builtin_seq},
+  {"fn?", core_is_fn},
+  {"macro?", core_is_macro},
+  {"string?", core_is_string},
+  {"number?", core_is_number},
+  {"seq", core_seq},
 
-  {"gensym", builtin_gensym},
+  {"gensym", core_gensym},
 
-  {"debug-info", builtin_debug_info},
+  {"debug-info", core_debug_info},
 
   {NULL, NULL},
 };
