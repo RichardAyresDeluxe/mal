@@ -9,6 +9,7 @@
 #include "listsort.h"
 #include "gc.h"
 #include "str.h"
+#include "eval.h"
 
 
 static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt);
@@ -46,6 +47,41 @@ MalVal *read_string(char *s)
   MalVal *val = read_form(tokens, &end);
   lex_free_tokens(tokens);
   return val;
+}
+
+static char *file_fgets(lexer_t lexer, char *s, int n, void *_fh)
+{
+  return fgets(s, n, _fh);
+}
+
+MalVal *load_file(const char *fname, ENV *env)
+{
+  MalVal *result = NULL;
+
+#ifdef AGON_LIGHT
+#error NIY
+#else
+  FILE *fh = fopen(fname, "r");
+  if (!fh)
+    malthrow("Cannot open file");
+
+  while (!feof(fh)) {
+    lex_token_t *tokens = parse_lisp(file_fgets, fh);
+    linked_list_reverse((void**)&tokens);
+
+    lex_token_t *token = tokens;
+    while(token) {
+      malval_reset_temp(result, NULL);
+      result = EVAL(read_form(token, &token), env);
+    }
+
+    lex_free_tokens(tokens);
+  }
+
+  fclose(fh);
+#endif
+
+  return result;
 }
 
 MalVal *read_form(lex_token_t *token, lex_token_t **next)

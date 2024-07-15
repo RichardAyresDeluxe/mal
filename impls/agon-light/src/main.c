@@ -686,6 +686,17 @@ static MalVal *builtin_eval(List *args, ENV *ignored)
   return EVAL(args->head, repl_env);
 }
 
+
+static MalVal *builtin_load_file(List *args, ENV *env)
+{
+  if (!args || args->tail)
+    malthrow("load-file requires one argument");
+
+  malval_reset_temp(load_file(VAL_STRING(args->head), env), NULL);
+
+  return NIL;
+}
+
 static void build_env(void)
 {
   repl_env = env_create(NULL, NULL, NULL);
@@ -698,6 +709,7 @@ static void build_env(void)
   env_set(repl_env, "true", _true);
   env_set(repl_env, "false", _false);
   env_set(repl_env, "eval", function_create_builtin(builtin_eval));
+  env_set(repl_env, "load-file", function_create_builtin(builtin_load_file));
   env_set(repl_env, "*ARGV*", malval_list(NULL));
   env_set(repl_env, "*host-language*", malval_string("agon-light"));
 }
@@ -707,8 +719,6 @@ char init[] = "\
 (defmacro! defn (fn* [name & body] `(def! ~name (fn* ~@body))))\f\
 (defmacro! defmacro (fn* [name & body] `(defmacro! ~name (fn* ~@body))))\f\
 (defmacro! def (fn* [name & body] `(def! ~name ~@body)))\f\
-(defn load-file\n\
-       [f] (eval (read-string (str \"(do \" (slurp f) \"\n nil)\"))))\f\
 (load-file \"init.mal\")\
 ";
 
