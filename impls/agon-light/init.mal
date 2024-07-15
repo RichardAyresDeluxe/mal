@@ -92,9 +92,9 @@
 ;; "when" - why? just use "if" and "do"
 (defmacro when [p &body] `(if ~p (do ~@body)))
 (defmacro when-not [p &body] `(if-not ~p (do ~@body)))
-(defmacro when-let [bs & body] `(if-let ~bindings (do ~@body)))
-(defmacro when-some [bs & body] `(if-some ~bindings (do ~@body)))
-(defmacro when-first [bs & body] `(if-some ~bindings (do ~@body)))
+(defmacro when-let [bs & body] `(if-let ~bs (do ~@body)))
+(defmacro when-some [bs & body] `(if-some ~bs (do ~@body)))
+(defmacro when-first [bs & body] `(if-some ~bs (do ~@body)))
 
 (defmacro or
   ([] nil)
@@ -134,6 +134,10 @@
         (throw (str "assertion failed: (not" ~body-str ")"))))))
 
 (defn zero? [x] (= 0 x))
+(defn pos? [x] (> x 0))
+(defn neg? [x] (< x 0))
+(defn even? [x] (zero? (mod x 2)))
+(defn odd? [x] (= 1 (mod x 2)))
 
 (defn repeat
   [n x]
@@ -150,3 +154,40 @@
   (cond
     (list? coll) (rest coll)
     (vector? coll) (vec (butlast coll))))
+
+(defn filter
+  [p xs]
+  (when (seq xs)
+    (let [x (first xs)
+          xs' (rest xs)]
+      (if (p x)
+        (cons x (filter p xs'))
+        (filter p xs')))))
+
+(defn remove
+  ([p] (partial remove p))
+  ([p coll] (filter (complement p) coll)))
+
+(defn every?
+  [p xs]
+  (cond
+    (empty? xs) true
+    (p (first xs)) (recur p (rest xs))
+    :else false))
+
+(def not-every? (comp not every?))
+
+(defn some
+  [pred coll]
+  (when-let [s (seq coll)]
+    (or (pred (first s))
+        (some pred (rest s)))))
+
+(def not-any? (comp not some))
+
+(defn prime?
+  [n]
+  (and (>= n 2)
+       (not-any?
+         (comp zero? (partial mod n))
+         (range 2 (inc (/ n 2))))))

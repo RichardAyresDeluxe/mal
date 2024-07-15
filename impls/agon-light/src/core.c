@@ -33,6 +33,7 @@ static MalType types_containers[] = {
   METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
   METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER,
   METATYPE_CONTAINER, METATYPE_CONTAINER, METATYPE_CONTAINER, 0};
+static MalType types_numbers[] = {TYPE_NUMBER, TYPE_NUMBER, 0};
 
 bool builtins_all_numeric(List *list)
 {
@@ -192,6 +193,14 @@ static MalVal *morethan_or_equal(List *args, ENV *env)
   }
 
   return args->head->data.number >= args->tail->head->data.number ? T : F;
+}
+
+static MalVal *builtin_mod(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_numbers))
+    return NIL;
+
+  return malval_number(VAL_NUMBER(args->head) % VAL_NUMBER(args->tail->head));
 }
 
 static MalType types_apply[] = {TYPE_FUNCTION, 0};
@@ -1254,6 +1263,7 @@ struct ns core_ns[] = {
   {"-", minus},
   {"*", multiply},
   {"/", divide},
+  {"mod", builtin_mod},
   {"=", builtin_equals},
   {"<", lessthan},
   {"<=", lessthan_or_equal},
