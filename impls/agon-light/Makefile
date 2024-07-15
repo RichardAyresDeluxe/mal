@@ -13,9 +13,9 @@ ifeq ($(PROFILE), 1)
 	LDFLAGS+=-pg
 else
 	ifeq ($(DEBUG), 1)
-		CFLAGS+=-O0 -g -D_DEBUG
+		CFLAGS+=-Og -g -D_DEBUG
 	else
-		CFLAGS+=-O2 -DNDEBUG
+		CFLAGS+=-Os -DNDEBUG
 	endif
 endif
 

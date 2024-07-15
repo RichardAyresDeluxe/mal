@@ -1230,6 +1230,7 @@ static MalVal *builtin_debug_info(List *args, ENV *env)
            result));
   list_release(values);
 
+#ifndef NDEBUG
   heap_info(&count, &size);
   values = cons_weak(malval_keyword(":count"), 
            cons_weak(malval_number(count),
@@ -1241,6 +1242,7 @@ static MalVal *builtin_debug_info(List *args, ENV *env)
            cons_weak(malval_map(values),
            result));
   list_release(values);
+#endif
 
   MalVal *rv = malval_map(result);
   list_release(result);

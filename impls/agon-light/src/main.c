@@ -675,12 +675,14 @@ static void cleanup(void)
   env_release(repl_env);
   repl_env = NULL;
 
+#ifndef NDEBUG
   unsigned count, size;
   value_info(&count, &size);
   fprintf(stderr, "Values remaining: %u (%u bytes)\n", count, size);
 
   heap_info(&count, &size);
   fprintf(stderr, "Heap remainig: %u items (%u bytes)\n", count, size);
+#endif
 }
 
 static MalVal *builtin_eval(List *args, ENV *ignored)
@@ -772,9 +774,11 @@ int main(int argc, char **argv)
     }
     puts(s);
     heap_free(s);
+#ifndef NDEBUG
     s = rep(repl_env, "(debug-info)");
     puts(s);
     heap_free(s);
+#endif
   }
 }
 
