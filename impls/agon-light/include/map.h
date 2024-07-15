@@ -12,6 +12,8 @@ void map_destroy(Map*);
 void map_add(Map *, const char *key, MalVal *value);
 void map_remove(Map *, const char *key);
 
+unsigned map_count(Map*);
+
 /** returns NULL if not found */
 MalVal *map_find(Map *, const char *key);
 

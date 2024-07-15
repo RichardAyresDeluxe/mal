@@ -5,7 +5,11 @@
 
 #include <string.h>
 
-static unsigned primes[] = {3, 7, 17, 37, 59, 127, 251};
+/* Array of allowed table sizes */
+static const unsigned sizes[] = {3, 7, 17, 37, 59, 127, 251};
+
+#define TABLE_SIZE_INIT sizes[0]
+#define TABLE_SIZE_MAX sizes[sizeof(sizes)/sizeof(sizes[0]) - 1]
 
 struct entry {
   struct entry *next;
@@ -17,6 +21,11 @@ struct Map {
   unsigned table_size;
   struct entry **table;
 };
+
+typedef struct entry Entry;
+
+/* Rebuild this map for the given number of entries */
+static void rebuild(Map *, unsigned);
 
 static uint16_t string_hash(const char *s)
 {
@@ -32,34 +41,31 @@ static uint16_t string_hash(const char *s)
   return (uint16_t)hv;
 }
 
-static unsigned next_prime(unsigned p)
+static unsigned next_size(unsigned p)
 {
-  unsigned nprimes = sizeof(primes)/sizeof(primes[0]);
-  for (unsigned i = 0; i < nprimes; i++) {
-    if (primes[i] >= p)
-      return primes[i];
+  unsigned nsizes = sizeof(sizes)/sizeof(sizes[0]);
+  for (unsigned i = 0; i < nsizes; i++) {
+    if (sizes[i] >= p)
+      return sizes[i];
   }
-  return primes[nprimes - 1];
+  return sizes[nsizes - 1];
 }
 
 Map *map_createN(unsigned init_size)
 {
   Map *map = heap_malloc(sizeof(Map));
-  map->table_size = next_prime(init_size);
+  map->table_size = next_size(init_size);
   map->table = heap_calloc(map->table_size, sizeof(struct entry*));
   return map;
 }
 
 Map *map_create(void)
 {
-  return map_createN(primes[0]);
+  return map_createN(TABLE_SIZE_INIT);
 }
 
-void map_destroy(Map *map)
+static void destroy_table(Map *map)
 {
-  if (!map)
-    return;
-
   for (unsigned idx = 0; idx < map->table_size; idx++) {
     struct entry *rover = map->table[idx];
     while (rover) {
@@ -69,14 +75,39 @@ void map_destroy(Map *map)
       rover = next;
     }
   }
+}
 
+void map_destroy(Map *map)
+{
+  if (!map)
+    return;
+
+  destroy_table(map);
   heap_free(map->table);
   heap_free(map);
 }
 
+unsigned map_count(Map *map)
+{
+  unsigned count = 0;
+  for (unsigned idx = 0; idx < map->table_size; idx++) {
+    for (Entry *rover = map->table[idx]; rover; rover = rover->next)
+      count++;
+  }
+  return count;
+}
+
 void map_add(Map *map, const char *key, MalVal *val)
 {
-  unsigned idx = string_hash(key) % map->table_size;
+  unsigned hv = string_hash(key);
+  unsigned idx = hv % map->table_size;
+
+  if (map->table_size < TABLE_SIZE_MAX && map->table[idx] != NULL) {
+    /* This bucket already has entries - try to rebuild */
+    rebuild(map, 1 + map_count(map));
+    idx = hv % map->table_size;
+  }
+
   struct entry *entry = heap_malloc(sizeof(struct entry));
 
   entry->key = strdup(key);
@@ -117,4 +148,31 @@ void map_foreach(Map *map, KeyValProc p, void *data)
       p(entry->key, entry->value, data);
     }
   }
+}
+
+static void insert_entry(const char *key, MalVal *val, void *data)
+{
+  Map *map = data;
+
+  unsigned idx = string_hash(key) % map->table_size;
+
+  Entry *entry = heap_malloc(sizeof(Entry));
+  entry->key = strdup(key);
+  entry->value = val;
+  entry->next = map->table[idx];
+  map->table[idx] = entry;
+}
+
+static void rebuild(Map *map, unsigned for_size)
+{
+  unsigned new_size = next_size(for_size);
+  struct entry **new_table = heap_calloc(new_size, sizeof(struct entry*));
+
+  Map tmp = {new_size, new_table};
+  map_foreach(map, insert_entry, &tmp);
+
+  destroy_table(map);
+  heap_free(map->table);
+  map->table_size = new_size;
+  map->table = new_table;
 }
