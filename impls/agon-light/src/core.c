@@ -257,8 +257,9 @@ static MalVal *core_cons(List *args, ENV *env)
       list = VAL_VEC(args->tail->head);
       break;
     case TYPE_MAP:
-      err_warning(ERR_ARGUMENT_MISMATCH, "cannot cons to maps yet");
-      return NIL;
+      malthrow("cannot cons to maps yet");
+    default:
+      malthrow("unable to cons to object");
   }
 
   return malval_list_weak(cons(args->head, list));

@@ -436,6 +436,7 @@ static MalVal *EVAL_try(List *body, ENV *env)
   List binds = {NULL, 1, VAL_LIST(catch)->tail->head};
   List exc = {NULL, 1, exception};
   ENV *env2 = env_create(env, &binds, &exc);
+  malval_reset_temp(exception, NULL);
   exception = NULL;
   result = EVAL(VAL_LIST(catch)->tail->tail->head, env2);
   env_release(env2);
@@ -644,6 +645,7 @@ char *rep(ENV *repl_env, char *s)
     char *x = pr_str(exception, TRUE);
     fputs(x, stdout);
     fputs("\n", stdout);
+    malval_reset_temp(exception, NULL);
     exception = NULL;
     return PRINT(NULL);
   }
