@@ -159,41 +159,6 @@ static MalVal *lessthan(List *args, ENV *env)
   return args->head->data.number < args->tail->head->data.number ? T : F;
 }
 
-static MalVal *lessthan_or_equal(List *args, ENV *env)
-{
-  if (!builtins_args_check(args, 2, ARGS_MAX, NULL)
-   || !builtins_all_numeric(args))
-  {
-    return NIL;
-  }
-
-  if (args->head->data.number <= args->tail->head->data.number)
-    return T;
-  return F;
-}
-
-static MalVal *morethan(List *args, ENV *env)
-{
-  if (!builtins_args_check(args, 2, ARGS_MAX, NULL)
-   || !builtins_all_numeric(args))
-  {
-    return NIL;
-  }
-
-  return args->head->data.number > args->tail->head->data.number ? T : F;
-}
-
-static MalVal *morethan_or_equal(List *args, ENV *env)
-{
-  if (!builtins_args_check(args, 2, ARGS_MAX, NULL)
-   || !builtins_all_numeric(args))
-  {
-    return NIL;
-  }
-
-  return args->head->data.number >= args->tail->head->data.number ? T : F;
-}
-
 static MalVal *core_mod(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_numbers))
@@ -1231,9 +1196,6 @@ struct ns core_ns[] = {
   {"mod", core_mod},
   {"=", core_equals},
   {"<", lessthan},
-  {"<=", lessthan_or_equal},
-  {">", morethan},
-  {">=", morethan_or_equal},
   {"apply", core_apply},
   {"cons", core_cons},
   {"concat", core_concat},

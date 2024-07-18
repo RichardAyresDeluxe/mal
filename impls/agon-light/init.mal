@@ -66,20 +66,18 @@
         (recur (dec n) (rest xs) (cons (first xs) out))))))
 
 (defn comp
-  ([f g] (fn ([a] (f (g a)))
-             ([a b] (f (g a b)))
-             ([a b & more] (f (apply g a b more)))))
-  ([f g & gs]
-   (comp f (apply comp g gs))))
+  ([f] f)
+  ([f g] (fn [&args] (f (apply g args))))
+  ([f g & more] (apply comp (comp f g) more)))
 
 (defn not [a] (if a false true))
 
 (defn complement
-  [f]
-  (fn 
-    ([a] (not (f a)))
-    ([a b] (not (f a b)))
-    ([a b & more] (not (apply f a b more)))))
+  [f] (fn [& args] (not (apply f args))))
+
+(defn > [a b] (< b a))
+(defn >= [a b] (not (< a b)))
+(defn <= [a b] (>= b a))
 
 (defn not= [a b] (if (= a b) false true))
 
