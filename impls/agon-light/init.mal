@@ -1,22 +1,61 @@
-(defmacro let [&body] `(let* ~@body))
-(defmacro try [&body] `(try* ~@body))
-(defmacro catch [&body] `(catch* ~@body))
-(defmacro fn [&body] `(fn* ~@body))
+(defmacro! let (fn* [& body] `(let* ~@body)))
+(defmacro! when (fn* [condition & body] `(if ~condition (do ~@body))))
+(defmacro! def (fn* [name & body] `(def! ~name ~@body)))
+(defmacro! fn (fn* [& body] `(fn* ~@body)))
+(defmacro! defn (fn* [name & body] `(def! ~name (fn ~@body))))
+(defmacro! defmacro (fn* [name & body] `(defmacro! ~name (fn ~@body))))
+
+(defmacro try [& body] `(try* (do ~@body)))
+(defmacro catch [& body] `(catch* (do ~@body)))
+;; (defmacro fn [& body] `(fn* ~@body))
+(defn inc [a] (+ a 1))
+(defn dec [a] (- a 1))
+
+(def gensym
+  (let [counter (atom 0)]
+    (fn 
+      ([] (gensym "G__"))
+      ([pfx] (symbol (str pfx (swap! counter inc)))))))
 
 (defn partial
-  ([f] f)
-  ([f a]
-   (fn ([x] (f a x))
-       ([x y] (f a x y))
-       ([x y &zs] (apply f a x y zs))))
-  ([f a b]
-   (fn ([x] (f a b x))
-       ([x y] (f a b x y))
-       ([x y &zs] (apply f a b x y zs))))
-  ([f a b &cs]
-   (fn ([x] (apply f a b (conj cs x)))
-       ([x y] (f a b (conj cs x y)))
-       ([x y &zs] (apply f a b (concat cs [x y] zs))))))
+  [p & args]
+  (fn [& inner] (apply p (concat args inner))))
+
+(defn zero? [x] (= 0 x))
+(defn pos? [x] (> x 0))
+(defn neg? [x] (< x 0))
+(defn even? [x] (zero? (mod x 2)))
+(defn odd? [x] (= 1 (mod x 2)))
+
+(defn take
+  [n xs]
+  (if (not (zero? n))
+    (cons (first xs) (take (dec n) (rest xs)))))
+
+(defn drop
+  [n xs]
+  (if (zero? n) xs
+    (drop (dec n) (rest xs))))
+
+(defn partition
+  ([n coll] (partition n n coll))
+  ([n step coll] (partition n step nil coll))
+  ([n step pad coll]
+   (if (not (empty? coll))
+     (let [xs (seq (take n coll))]
+       (if (= (count xs) n)
+         (cons xs (partition n step pad (drop step coll)))
+         (if (not (nil? pad))
+           (list (seq (take n (concat xs pad))))))))))
+
+(defmacro loop
+  [bindings & body]
+  (let [fsym (gensym)
+        syms (map first (partition 1 2 bindings))
+        vals (map first (partition 1 2 (rest bindings)))]
+    `(let [__loop_fsym '~fsym
+           ~fsym (fn [~@syms] (do ~@body))]
+      (~fsym ~@vals))))
 
 (defn comp
   ([f g] (fn ([a] (f (g a)))
@@ -43,8 +82,10 @@
     (if (< start end)
       (cons start (range (+ step start) end step)))))
 
-(defn inc (a) (+ a 1))
-(defn dec (a) (- a 1))
+(defn map
+  [f xs]
+  (if (empty? xs) '()
+    (cons (f (first xs)) (map f (rest xs)))))
 
 (defn reduce
    ([f xs] (reduce f (first xs) (rest xs)))
@@ -132,12 +173,6 @@
     `(if-not (do ~@body)
       (let [~body-str (str (quote ~@body))]
         (throw (str "assertion failed: (not" ~body-str ")"))))))
-
-(defn zero? [x] (= 0 x))
-(defn pos? [x] (> x 0))
-(defn neg? [x] (< x 0))
-(defn even? [x] (zero? (mod x 2)))
-(defn odd? [x] (= 1 (mod x 2)))
 
 (defn repeat
   [n x]

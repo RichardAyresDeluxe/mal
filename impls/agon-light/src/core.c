@@ -12,7 +12,6 @@
 #include "gc.h"
 #include "reader.h"
 #include "eval.h"
-#include "itoa.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -530,24 +529,6 @@ static MalVal *core_reverse(List *args, ENV *env)
     result = cons_weak(input->head, result);
   }
 
-  return malval_list_weak(result);
-}
-
-static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
-static MalVal *core_map(List *args, ENV *env)
-{
-  if (!builtins_args_check(args, 2, 2, types_map))
-    return NIL;
-
-  List *result = NULL;
-  Function *f = VAL_FUNCTION(args->head);
-  List *input = list_from_container(args->tail->head);
-  for (; input; input = input->tail) {
-    List a = {NULL, 1, input->head};
-    result = cons_weak(apply(f, &a), result);
-  }
-
-  linked_list_reverse((void**)&result);
   return malval_list_weak(result);
 }
 
@@ -1098,31 +1079,6 @@ static MalVal *core_seq(List *args, ENV *env)
   return malval_list_weak(result);
 }
 
-static MalType types_gensym[] = {TYPE_STRING, 0};
-MalVal *core_gensym(List *args, ENV *env)
-{
-  static long i = 0;
-  char *pfx;
-
-  if (!builtins_args_check(args, 0, 1, types_gensym))
-    return NIL;
-
-  if (args && VAL_TYPE(args->head) == TYPE_STRING) {
-    pfx = VAL_STRING(args->head);
-  } else {
-    pfx = "gensym_";
-  }
-
-  unsigned lpfx = strlen(pfx);
-  char *buf = alloca(lpfx + 20);
-
-  strcpy(buf, pfx);
-
-  itoa(i++, &buf[lpfx], 10);
-
-  return malval_symbol(buf);
-}
-
 static MalVal *core_conj(List *args, ENV *env)
 {
   if (!args)
@@ -1270,7 +1226,6 @@ struct ns core_ns[] = {
   {"rest", core_rest},
   {"nth", core_nth},
   {"reverse", core_reverse},
-  {"map", core_map},
   {"list", core_list},
   {"list?", core_is_list},
   {"empty?", core_is_empty},
@@ -1323,8 +1278,6 @@ struct ns core_ns[] = {
   {"seq", core_seq},
 
   {"hash", core_hash},
-
-  {"gensym", core_gensym},
 
   {"debug-info", core_debug_info},
 

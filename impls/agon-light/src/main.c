@@ -781,30 +781,23 @@ static void build_env(void)
   env_set(repl_env, "*host-language*", malval_string("agon-light"));
 }
 
-/* init mal code, separated by \f */
-char init[] = "\
-(defmacro! defn (fn* [name & body] `(def! ~name (fn* ~@body))))\f\
-(defmacro! defmacro (fn* [name & body] `(defmacro! ~name (fn* ~@body))))\f\
-(defmacro! def (fn* [name & body] `(def! ~name ~@body)))\f\
-(load-file \"init.mal\")\
-";
+extern void __fpurge(FILE*);
 
 int main(int argc, char **argv)
 {
   _nil = malval_nil();
   _true = malval_bool(TRUE);
   _false = malval_bool(FALSE);
+  gc_pop();
+  gc_pop();
+  gc_pop();
 
   /* Largely to keep valgrind happy */
   atexit(cleanup);
 
   build_env();
 
-  char *s = strtok(init, "\f");
-  do {
-    heap_free(rep(repl_env, s));
-    s = strtok(NULL, "\f");
-  } while(s);
+  load_file("init.mal", repl_env);
 
   int arg = 1;
 
