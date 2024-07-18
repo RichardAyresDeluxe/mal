@@ -1,4 +1,4 @@
-(defmacro! let (fn* [& body] `(let* ~@body)))
+(defmacro! let (fn* [ bindings & body] `(let* ~bindings (do ~@body))))
 (defmacro! when (fn* [condition & body] `(if ~condition (do ~@body))))
 (defmacro! def (fn* [name & body] `(def! ~name ~@body)))
 (defmacro! fn (fn* [& body] `(fn* ~@body)))
