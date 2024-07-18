@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "heap.h"
 #include "err.h"
+#include "list.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,25 +22,11 @@ void heap_init(void)
 }
 
 typedef struct block {
-  unsigned size;
   struct block *prev, *next;
+  unsigned size;
 } block_t;
 
-static block_t heap = {0, &heap, &heap };
-
-static void block_link(block_t *blk)
-{
-  blk->prev = heap.next->prev;
-  blk->next = heap.next;
-  heap.next->prev = blk;
-  heap.next = blk;
-}
-
-static void block_unlink(block_t *blk)
-{
-  blk->prev->next = blk->next;
-  blk->next->prev = blk->prev;
-}
+static block_t heap = {&heap, &heap, 0};
 
 static void out_of_memory(void)
 {
@@ -59,7 +46,7 @@ void *heap_malloc(size_t sz)
     out_of_memory();
 
   blk->size = sz;
-  block_link(blk);
+  dlist_add(&heap, blk);
 
   return blk + 1;
 }
@@ -72,7 +59,7 @@ void *heap_calloc(size_t nmemb, size_t sz)
     out_of_memory();
 
   blk->size = sz;
-  block_link(blk);
+  dlist_add(&heap, blk);
 
   return blk + 1;
 }
@@ -83,7 +70,7 @@ void *heap_realloc(void *p, size_t sz)
 
   if (p) {
     blk = (block_t*)p - 1;
-    block_unlink(blk);
+    dlist_remove(blk);
   }
 
   blk = realloc(blk, sizeof(block_t) + sz);
@@ -91,7 +78,7 @@ void *heap_realloc(void *p, size_t sz)
     out_of_memory();
 
   blk->size = sz;
-  block_link(blk);
+  dlist_add(&heap, blk);
 
   return blk + 1;
 }
@@ -102,18 +89,27 @@ void heap_free(void *p)
     return;
 
   block_t *blk = (block_t*)p - 1;
-  block_unlink(blk);
+  dlist_remove(blk);
   free(blk);
+}
+
+static void count_heap(void *_blk, void *_out)
+{
+  block_t *blk = _blk;
+  unsigned *out = _out;
+
+  out[0]++;
+  out[1] += blk->size;
 }
 
 void heap_info(unsigned *count, unsigned *size)
 {
-  *count = 0;
-  *size = 0;
-  for (block_t *rover = heap.next; rover != &heap; rover = rover->next) {
-    (*count)++;
-    *size = *size + rover->size;
-  }
+  unsigned out[2] = {0 /* count */, 0 /* size */};
+
+  dlist_forall(&heap, count_heap, out);
+
+  *count = out[0];
+  *size = out[1];
 }
 #else
 static void out_of_memory()
