@@ -27,26 +27,21 @@
 (defn even? [x] (zero? (mod x 2)))
 (defn odd? [x] (= 1 (mod x 2)))
 
-(defn take
+(defn take*
   [n xs]
-  (if (not (zero? n))
-    (cons (first xs) (take (dec n) (rest xs)))))
-
-(defn drop
-  [n xs]
-  (if (zero? n) xs
-    (drop (dec n) (rest xs))))
+  (when (not (zero? n))
+    (cons (first xs) (take* (dec n) (rest xs)))))
 
 (defn partition
   ([n coll] (partition n n coll))
   ([n step coll] (partition n step nil coll))
   ([n step pad coll]
    (if (not (empty? coll))
-     (let [xs (seq (take n coll))]
+     (let [xs (seq (take* n coll))]
        (if (= (count xs) n)
          (cons xs (partition n step pad (drop step coll)))
          (if (not (nil? pad))
-           (list (seq (take n (concat xs pad))))))))))
+           (list (seq (take* n (concat xs pad))))))))))
 
 (defmacro loop
   [bindings & body]
@@ -57,6 +52,18 @@
            ~fsym (fn [~@syms] (do ~@body))]
 
       (~fsym ~@vals))))
+
+(defn drop
+  [n xs]
+  (if (zero? n) xs
+    (drop (dec n) (rest xs))))
+
+(defn take
+  [n xs]
+  (reverse
+    (loop [n n xs xs out nil]
+      (if (zero? n) out
+        (recur (dec n) (rest xs) (cons (first xs) out))))))
 
 (defn comp
   ([f g] (fn ([a] (f (g a)))
