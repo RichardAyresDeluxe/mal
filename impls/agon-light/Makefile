@@ -13,7 +13,7 @@ ifeq ($(PROFILE), 1)
 	LDFLAGS+=-pg
 else
 	ifeq ($(DEBUG), 1)
-		CFLAGS+=-Og -g -D_DEBUG
+		CFLAGS+=-O0 -g -D_DEBUG
 	else
 		CFLAGS+=-Os -DNDEBUG
 	endif
