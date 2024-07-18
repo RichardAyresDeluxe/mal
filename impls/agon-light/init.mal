@@ -122,8 +122,9 @@
    (if (not= 2 (count bindings))
      (throw "'if-some' requires 2 items in bindings vector")
      (let* [sym (first bindings)
-            val (second bindings)
-            (if-not (nil? ~sym) ~then ~else)]))))
+            val (second bindings)]
+       `(let* [~sym ~val]
+          (if-not (nil? ~sym) ~then ~else))))))
 
 (defmacro if-first
   ([bindings then] `(if-first ~bindings ~then nil))
@@ -131,17 +132,18 @@
    (let [xs (gensym)
          sym (first bindings)
          val (second bindings)]
-     `(let [~xs ~val]
+     `(let* [~xs ~val]
         (if (seq ~xs) 
-          (let [~sym (first ~xs)]
-            ~body))))))
+          (let* [~sym (first ~xs)]
+            ~then)
+          ~else)))))
 
 ;; "when" - why? just use "if" and "do"
 (defmacro when [p &body] `(if ~p (do ~@body)))
 (defmacro when-not [p &body] `(if-not ~p (do ~@body)))
 (defmacro when-let [bs & body] `(if-let ~bs (do ~@body)))
 (defmacro when-some [bs & body] `(if-some ~bs (do ~@body)))
-(defmacro when-first [bs & body] `(if-some ~bs (do ~@body)))
+(defmacro when-first [bs & body] `(if-first ~bs (do ~@body)))
 
 (defmacro or
   ([] nil)
