@@ -80,8 +80,13 @@
    ([end] (range 0 end))
    ([start end] (range start end 1))
    ([start end step]
-    (if (< start end)
-      (cons start (range (+ step start) end step)))))
+    (reverse
+      (let [finished? (if (< start end) (partial <= end) (partial >= end))
+            step (if (< start end) step (* -1 step))]
+        (loop [n start result '()]
+          (if (finished? n)
+            result
+            (recur (+ n step) (cons n result))))))))
 
 (defn reduce
    ([f xs] (reduce f (first xs) (rest xs)))
