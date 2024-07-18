@@ -97,10 +97,26 @@ unsigned map_count(Map *map)
   return count;
 }
 
+static Entry *find_entry(Entry *entries, const char *key)
+{
+  for (Entry *rover = entries; rover; rover = rover->next) {
+    if (strcmp(rover->key, key) == 0)
+      return rover;
+  }
+  return NULL;
+}
+
 void map_add(Map *map, const char *key, MalVal *val)
 {
+  Entry *entry;
   unsigned hv = string_hash(key);
   unsigned idx = hv % map->table_size;
+
+  if ((entry = find_entry(map->table[idx], key)) != NULL) {
+    /* There is already an entry for that key - re-use (overwrite) it */
+    entry->value = val;
+    return;
+  }
 
   if (map->table_size < TABLE_SIZE_MAX && map->table[idx] != NULL) {
     /* This bucket already has entries - try to rebuild */
@@ -108,8 +124,7 @@ void map_add(Map *map, const char *key, MalVal *val)
     idx = hv % map->table_size;
   }
 
-  struct entry *entry = heap_malloc(sizeof(struct entry));
-
+  entry = heap_malloc(sizeof(struct entry));
   entry->key = strdup(key);
   entry->value = val;
   entry->next = map->table[idx];
