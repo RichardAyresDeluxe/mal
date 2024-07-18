@@ -517,6 +517,28 @@ static void EVAL_kw_function(MalVal *kw, List *args, MalVal** ast)
   list_release(result);
 }
 
+static void EVAL_recur(List *args, ENV *env, MalVal **ast, ENV **envout)
+{
+  MalVal *fn = env_get(env, "__recur_target");
+  if (!fn) {
+    exception = malval_string("recur not inside loop");
+    return;
+  }
+
+  if (VAL_TYPE(fn) == TYPE_SYMBOL)
+    fn = env_get(env, VAL_STRING(fn));
+
+  if (!fn || VAL_TYPE(fn) != TYPE_FUNCTION) {
+    exception = malval_string("cannot find function to recur");
+    return;
+  }
+
+  MalVal *evaluated = eval_ast(malval_list(args), env);
+  assert(VAL_TYPE(evaluated) == TYPE_LIST);
+
+  EVAL_call(VAL_FUNCTION(fn), VAL_LIST(evaluated), env, ast, envout);
+}
+
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
   if (exception) {
@@ -614,6 +636,14 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       }
       if (strcmp(symbol, "if") == 0) {
         EVAL_if(tail, env, &ast);
+        if (exception) {
+          env_release(env);
+          return NIL;
+        }
+        continue;
+      }
+      if (strcmp(symbol, "recur") == 0) {
+        EVAL_recur(tail, env, &ast, &env);
         if (exception) {
           env_release(env);
           return NIL;

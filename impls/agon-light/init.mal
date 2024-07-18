@@ -53,8 +53,9 @@
   (let [fsym (gensym)
         syms (map first (partition 1 2 bindings))
         vals (map first (partition 1 2 (rest bindings)))]
-    `(let [__loop_fsym '~fsym
+    `(let [__recur_target '~fsym
            ~fsym (fn [~@syms] (do ~@body))]
+
       (~fsym ~@vals))))
 
 (defn comp
