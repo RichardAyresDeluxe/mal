@@ -92,7 +92,7 @@ MalVal *malval_map(List *list)
 MalVal *malval_function(Function *fn)
 {
   MalVal *val = malval_create(TYPE_FUNCTION);
-  val->data.fn = heap_malloc(sizeof(struct MapWithMeta));
+  val->data.fn = heap_malloc(sizeof(struct FunctionWithMeta));
   val->data.fn->fn = fn;
   val->data.fn->meta = NIL;
   return val;

@@ -30,22 +30,74 @@ Function *function_duplicate(Function *in)
   out->is_macro = in->is_macro;
   if (in->is_builtin) {
     out->fn.builtin = in->fn.builtin;
-  }
-  else {
-    struct Body *bodies = NULL;
-    for (struct Body *bin = in->fn.bodies; bin; bin = bin->next) {
-      struct Body *bout = heap_malloc(sizeof(struct Body));
-      bout->arity = bin->arity;
-      bout->binds = list_acquire(bin->binds);
-      bout->body = bin->body;
-      bout->next = bodies;
-      bodies = bout;
-    }
-    linked_list_reverse((void**)&bodies);
-    out->fn.bodies = bodies;
+    return out;
   }
 
+  struct Body *bodies = NULL;
+  for (struct Body *bin = in->fn.bodies; bin; bin = bin->next) {
+    struct Body *bout = heap_malloc(sizeof(struct Body));
+    bout->arity = bin->arity;
+    bout->binds = list_duplicate(bin->binds);
+    bout->body = bin->body;
+    bout->next = bodies;
+    bodies = bout;
+  }
+  linked_list_reverse((void**)&bodies);
+  out->fn.bodies = bodies;
+
   return out;
+}
+
+static struct Body *create_body(List *list);
+static bool is_single_body(List *body);
+static int8_t arity_comp(void *_a, void *_b, void *data);
+
+MalVal *function_create(List *body, ENV *env)
+{
+  MalVal *doc = NULL;
+  Function *func = heap_malloc(sizeof(Function));
+  func->env = env_acquire(env); //env_create(env, NULL, NULL);
+  func->is_builtin = 0;
+  func->is_macro = 0;
+
+  if (body && VAL_TYPE(body->head) == TYPE_STRING) {
+    doc = body->head;
+    body = body->tail;
+  }
+
+  if (is_single_body(body)) {
+    /* single body */
+    func->fn.bodies = create_body(body);
+  }
+  else {
+    /* multi-arity function */
+    func->fn.bodies = NULL;
+    for (List *rover = body; rover; rover = rover->tail) {
+      if (VAL_TYPE(rover->head) != TYPE_LIST) {
+        err_warning(ERR_ARGUMENT_MISMATCH, "function body is not list");
+        function_destroy(func);
+        return NIL;
+      }
+      struct Body *b = create_body(VAL_LIST(rover->head));
+      if (!b) {
+        function_destroy(func);
+        return NIL;
+      }
+      b->next = func->fn.bodies;
+      func->fn.bodies = b;
+    }
+
+    /* make sure bodies are sorted by increasing arity */
+    linked_list_sort_raw((void**)&func->fn.bodies, arity_comp, NULL);
+  }
+
+  MalVal *rv = malval_function(func);
+  if (doc) {
+    List *doclist = cons_weak(malval_keyword(":doc"), cons_weak(doc, NULL));
+    rv->data.fn->meta = malval_map(doclist);
+    list_release(doclist);
+  }
+  return rv;
 }
 
 static struct Body *create_body(List *list)
@@ -114,54 +166,6 @@ static bool is_single_body(List *body)
   if (VAL_TYPE(body->head) == TYPE_LIST && list_forall(VAL_LIST(body->head), is_symbol, NULL))
     return TRUE;
   return FALSE;
-}
-
-MalVal *function_create(List *body, ENV *env)
-{
-  MalVal *doc = NULL;
-  Function *func = heap_malloc(sizeof(Function));
-  func->env = env_acquire(env); //env_create(env, NULL, NULL);
-  func->is_builtin = 0;
-  func->is_macro = 0;
-
-  if (body && VAL_TYPE(body->head) == TYPE_STRING) {
-    doc = body->head;
-    body = body->tail;
-  }
-
-  if (is_single_body(body)) {
-    /* single body */
-    func->fn.bodies = create_body(body);
-  }
-  else {
-    /* multi-arity function */
-    func->fn.bodies = NULL;
-    for (List *rover = body; rover; rover = rover->tail) {
-      if (VAL_TYPE(rover->head) != TYPE_LIST) {
-        err_warning(ERR_ARGUMENT_MISMATCH, "function body is not list");
-        function_destroy(func);
-        return NIL;
-      }
-      struct Body *b = create_body(VAL_LIST(rover->head));
-      if (!b) {
-        function_destroy(func);
-        return NIL;
-      }
-      b->next = func->fn.bodies;
-      func->fn.bodies = b;
-    }
-
-    /* make sure bodies are sorted by increasing arity */
-    linked_list_sort_raw((void**)&func->fn.bodies, arity_comp, NULL);
-  }
-
-  MalVal *rv = malval_function(func);
-  if (doc) {
-    List *doclist = cons_weak(malval_keyword(":doc"), cons_weak(doc, NULL));
-    rv->data.fn->meta = malval_map(doclist);
-    list_release(doclist);
-  }
-  return rv;
 }
 
 void function_destroy(Function *func)
