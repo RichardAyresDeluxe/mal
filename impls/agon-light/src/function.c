@@ -220,6 +220,7 @@ MalVal *apply(Function *func, List *args)
 
   struct Body *b = NULL;
   ENV *env = function_bind(func, args, &b);
+  env_set(env, "__args", malval_list(args));
 
   if (b == NULL) {
     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");
@@ -235,8 +236,6 @@ MalVal *apply(Function *func, List *args)
 
 void function_gc_mark(Function *fn, void *data)
 {
-  gc_mark_env(fn->env, data);
-
   if (fn->is_builtin)
     return;
 

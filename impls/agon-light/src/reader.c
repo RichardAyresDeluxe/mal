@@ -71,7 +71,6 @@ MalVal *load_file(const char *fname, ENV *env)
 
     lex_token_t *token = tokens;
     while(token) {
-      malval_reset_temp(result, NULL);
       result = EVAL(read_form(token, &token), env);
     }
 
@@ -81,7 +80,7 @@ MalVal *load_file(const char *fname, ENV *env)
   fclose(fh);
 #endif
 
-  return result;
+  return result ? result : NIL;
 }
 
 MalVal *read_form(lex_token_t *token, lex_token_t **next)

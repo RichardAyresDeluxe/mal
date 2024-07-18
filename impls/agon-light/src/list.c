@@ -166,3 +166,29 @@ uint16_t list_hash(List *list)
   return hv % 65521;
 }
 
+struct double_list {
+  struct double_list *prev, *next;
+};
+
+void dlist_add(void *_list, void *_item)
+{
+  struct double_list *list = _list, *item = _item;
+  item->prev = list->next->prev;
+  item->next = list->next;
+  list->next->prev = item;
+  list->next = item;
+}
+
+void dlist_remove(void *_item)
+{
+  struct double_list *item = _item;
+  item->prev->next = item->next;
+  item->next->prev = item->prev;
+}
+
+void dlist_forall(void *_list, void (*f)(void *, void*), void *data)
+{
+  struct double_list *list = _list;
+  for (struct double_list *rover = list->next; rover != list; rover = rover->next)
+    f(rover, data);
+}

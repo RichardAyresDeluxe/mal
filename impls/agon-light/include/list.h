@@ -53,4 +53,9 @@ static inline List *list_reverse(List **list) {
 extern MalVal *list_nth(List *, unsigned);
 extern uint16_t list_hash(List *list);
 
+/** Call the function p on every item in a double-linked list */
+extern void dlist_forall(void *list, void (*p)(void *, void*), void*);
+extern void dlist_add(void *list, void *item);
+extern void dlist_remove(void *item);
+
 #endif /* _list_H */

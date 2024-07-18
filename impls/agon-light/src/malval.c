@@ -17,7 +17,6 @@ MalVal *malval_create(MalType type)
 {
   MalVal *val = heap_malloc(sizeof(MalVal));
   val->mark = 0;
-  val->temp = 1;
   val->type = type;
   gc_add(val);
   return val;
@@ -177,29 +176,6 @@ unsigned malval_size(MalVal *val, bool deep)
   }
 
   return sz;
-}
-
-void malval_reset_temp(MalVal *val, void *data)
-{
-  if (!val)
-    return;
-
-  val->temp = 0;
-
-  switch (val->type) {
-    case TYPE_LIST:
-      list_foreach(VAL_LIST(val), malval_reset_temp, data);
-      break;
-    case TYPE_VECTOR:
-      list_foreach(VAL_VEC(val), malval_reset_temp, data);
-      break;
-    case TYPE_MAP:
-      list_foreach(VAL_MAP(val), malval_reset_temp, data);
-      break;
-    case TYPE_ATOM:
-      val->data.atom->temp = 0;
-      break;
-  }
 }
 
 MalVal *map_get(List *map, MalVal *key)

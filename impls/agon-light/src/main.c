@@ -12,6 +12,7 @@
 #include "eval.h"
 #include "function.h"
 #include "str.h"
+#include "itoa.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,14 +71,21 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   if (ast->type == TYPE_LIST)
   {
     List *evaluated = NULL;
+    int i = 0;
+    ENV *tmp = env_create(env, NULL, NULL);
+    env_set(tmp, "__list", ast);
+    char buf[24];
     for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
       MalVal *val = EVAL(rover->head, env);
       if (exception) {
+        env_release(tmp);
         list_release(evaluated);
         return ast;
       }
       evaluated = cons_weak(val, evaluated);
+      env_set(tmp, itoa(i++, buf, 10), val);
     }
+    env_release(tmp);
     linked_list_reverse((void**)&evaluated);
     return malval_list_weak(evaluated);
   }
@@ -85,14 +93,21 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   if (ast->type == TYPE_VECTOR)
   {
     List *evaluated = NULL;
-    for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
+    ENV *tmp = env_create(env, NULL, NULL);
+    int i = 0;
+    char buf[24];
+    env_set(tmp, "__vec", ast);
+    for (List *rover = VAL_VEC(ast); rover; rover = rover->tail) {
       MalVal *val = EVAL(rover->head, env);
       if (exception) {
+        env_release(tmp);
         list_release(evaluated);
         return ast;
       }
       evaluated = cons_weak(val, evaluated);
+      env_set(tmp, itoa(i++, buf, 10), val);
     }
+    env_release(tmp);
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_vector(evaluated);
     list_release(evaluated);
@@ -103,21 +118,28 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   {
     List *evaluated = NULL;
     unsigned i = 0;
-    for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
+    char buf[24];
+    ENV *tmp = env_create(env, NULL, NULL);
+    env_set(tmp, "__map", ast);
+    for (List *rover = VAL_MAP(ast); rover; rover = rover->tail) {
       if ((i++ % 2) == 0) {
         /* even - a key, don't evaluate */
         evaluated = cons_weak(rover->head, evaluated);
+        env_set(tmp, itoa(i, buf, 10), rover->head);
       }
       else {
         /* odd - a value, evaluate */
         MalVal *val = EVAL(rover->head, env);
         if (exception) {
+          env_release(tmp);
           list_release(evaluated);
           return ast;
         }
+        env_set(tmp, itoa(i, buf, 10), val);
         evaluated = cons_weak(val, evaluated);
       }
     }
+    env_release(tmp);
     linked_list_reverse((void**)&evaluated);
     MalVal *value = malval_map(evaluated);
     list_release(evaluated);
@@ -135,11 +157,15 @@ static MalVal *EVAL_def(List *list, ENV *env)
     return NIL;
   }
 
-  const char *name = list->head->data.string;
+  char *name = alloca(strlen(VAL_STRING(list->head)) + 1);
+  strcpy(name, VAL_STRING(list->head));
+
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, "__body", malval_list(list));
 
   MalVal *value = EVAL(list->tail->head, env);
+  env_release(tmp);
   if (exception) {
-    malval_reset_temp(value, NULL);
     return NIL;
   }
   if (!value) {
@@ -159,11 +185,15 @@ static MalVal *EVAL_defmacro(List *list, ENV *env)
     return NIL;
   }
 
-  const char *name = VAL_STRING(list->head);
+  char *name = alloca(strlen(VAL_STRING(list->head)) + 1);
+  strcpy(name, VAL_STRING(list->head));
+
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, "__body", malval_list(list));
 
   MalVal *value = EVAL(list->tail->head, env);
+  env_release(tmp);
   if (exception) {
-    malval_reset_temp(value, NULL);
     return NIL;
   }
   if (!value) {
@@ -172,17 +202,12 @@ static MalVal *EVAL_defmacro(List *list, ENV *env)
   }
 
   if (VAL_TYPE(value) != TYPE_FUNCTION) {
-    malval_reset_temp(value, NULL);
-    err_warning(ERR_ARGUMENT_MISMATCH, "not a function in defmacro!");
-    return NIL;
+    malthrow("not a function in defmacro!");
   }
 
   MalVal *copy = malval_function(function_duplicate(VAL_FUNCTION(value)));
-
   VAL_FUNCTION(copy)->is_macro = 1;
-
   env_set(env, name, copy);
-
   return copy;
 }
 
@@ -225,15 +250,18 @@ static MalVal *EVAL_fn_star(List *list, ENV *env)
 
 static void EVAL_do(List *list, ENV *env, MalVal **out)
 {
+  ENV *tmp = env_create(env, NULL, NULL);
   List *rover = list;
   while (rover && rover->tail) {
-    MalVal *val = EVAL(rover->head, env);
-    malval_reset_temp(val, NULL);
+    env_set(tmp, "__body", rover->head);
+    EVAL(rover->head, env);
     if (exception) {
+      env_release(tmp);
       return;
     }
     rover = rover->tail;
   }
+  env_release(tmp);
 
   *out = rover ? rover->head : NIL;
 }
@@ -246,9 +274,12 @@ static void EVAL_if(List *list, ENV *env, MalVal **out)
     return;
   }
 
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, "__body", malval_list(list));
+
   MalVal *val = EVAL(list->head, env);
+  env_release(tmp);
   if (exception) {
-    malval_reset_temp(val, NULL);
     return;
   }
   if (VAL_IS_NIL(val) || VAL_IS_FALSE(val)) {
@@ -286,6 +317,13 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
     return;
   }
 
+  /* We will put all our un-evaluated bodies in here 
+   * so that they do not get garbage collected during evaluation
+   * of bindings */
+  ENV *tmp = env_create(env, NULL, NULL);
+  char s[3] = "Sa", v[3] = "Va";
+  env_set(tmp, "bindings", malval_list(bindings));
+  env_set(tmp, "list", malval_list(list));
   for (List *rover = bindings;
        rover && rover->tail;
        rover = rover->tail->tail)
@@ -296,15 +334,25 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
       *out = NIL;
       return;
     }
+    env_set(tmp, s, rover->head);
+    env_set(tmp, v, rover->tail->head);
+    s[1]++;
+    v[1]++;
+  }
+
+  for (List *rover = bindings;
+       rover && rover->tail;
+       rover = rover->tail->tail)
+  {
     MalVal *val = EVAL(rover->tail->head, let);
     if (exception) {
       env_release(let);
-      malval_reset_temp(val, NULL);
       *out = NIL;
       return;
     }
-    env_set(let, rover->head->data.string, val);
+    env_set(let, VAL_STRING(rover->head), val);
   }
+  env_release(tmp);
 
   *out = list->tail->head;
   env_release(*envout);
@@ -330,11 +378,14 @@ static void EVAL_call(Function *fn, List *args, ENV *env, MalVal **out, ENV **en
   *envout = new_env;
 }
 
-static MalVal *EVAL_quasiquote(MalVal *ast);
+static MalVal *EVAL_quasiquote(MalVal *ast, ENV* env);
 
-static MalVal *EVAL_quasiquote_list(List *elt)
+static MalVal *EVAL_quasiquote_list(List *elt, ENV *env)
 {
   List *result = NULL;
+
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, "__elt", malval_list(elt));
 
   for (; elt; elt = elt->tail) {
     if (VAL_TYPE(elt->head) == TYPE_LIST
@@ -347,10 +398,9 @@ static MalVal *EVAL_quasiquote_list(List *elt)
                                    cons_weak(malval_list_weak(result), NULL)));
     }
     else {
-      MalVal *val = EVAL_quasiquote(elt->head);
+      MalVal *val = EVAL_quasiquote(elt->head, env);
       if (exception) {
         list_release(result);
-        malval_reset_temp(val, NULL);
         return NIL;
       }
       result = cons_weak(malval_symbol("cons"),
@@ -358,11 +408,12 @@ static MalVal *EVAL_quasiquote_list(List *elt)
                                    cons_weak(malval_list_weak(result), NULL)));
     }
   }
+  env_release(tmp);
 
   return malval_list_weak(result);
 }
 
-static MalVal *EVAL_quasiquote(MalVal *ast)
+static MalVal *EVAL_quasiquote(MalVal *ast, ENV *env)
 {
   if (VAL_TYPE(ast) == TYPE_LIST
    && !list_is_empty(VAL_LIST(ast))
@@ -377,10 +428,14 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
   if (VAL_TYPE(ast) == TYPE_LIST) {
     List *list = list_duplicate(VAL_LIST(ast));
     linked_list_reverse((void**)&list);
-    MalVal *rv = EVAL_quasiquote_list(list);
+
+    ENV *tmp = env_create(env, NULL, NULL);
+    env_set(tmp, "__list", malval_list(list));
+    MalVal *rv = EVAL_quasiquote_list(list, env);
+    env_release(tmp);
+
     if (exception) {
       list_release(list);
-      malval_reset_temp(rv, NULL);
       return NIL;
     }
     list_release(list);
@@ -390,10 +445,14 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
   if (VAL_TYPE(ast) == TYPE_VECTOR) {
     List *list = list_from_container(ast);
     linked_list_reverse((void**)&list);
-    MalVal *val = EVAL_quasiquote_list(list);
+
+    ENV *tmp = env_create(env, NULL, NULL);
+    env_set(tmp, "__list", malval_list(list));
+    MalVal *val = EVAL_quasiquote_list(list, env);
+    env_release(tmp);
+
     if (exception) {
       list_release(list);
-      malval_reset_temp(val, NULL);
       return NIL;
     }
     return malval_list_weak(cons_weak(malval_symbol("vec"),
@@ -410,7 +469,10 @@ static MalVal *EVAL_quasiquote(MalVal *ast)
 
 static MalVal *EVAL_try(List *body, ENV *env)
 {
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, "__try", malval_list(body));
   MalVal *result = EVAL(body->head, env);
+  env_release(tmp);
   if (!exception) /* no exception */
     return result;
 
@@ -432,12 +494,11 @@ static MalVal *EVAL_try(List *body, ENV *env)
   }
 
   /* we have an exception */
-  malval_reset_temp(result, NULL);
   List binds = {NULL, 1, VAL_LIST(catch)->tail->head};
   List exc = {NULL, 1, exception};
   ENV *env2 = env_create(env, &binds, &exc);
-  malval_reset_temp(exception, NULL);
   exception = NULL;
+  env_set(env2, "__catch", catch);
   result = EVAL(VAL_LIST(catch)->tail->tail->head, env2);
   env_release(env2);
 
@@ -458,14 +519,15 @@ static void EVAL_kw_function(MalVal *kw, List *args, MalVal** ast)
 
 MalVal *EVAL(MalVal *ast, ENV *env)
 {
-  if (exception)
+  if (exception) {
     return ast;
+  }
 
   env_acquire(env);
 
   while (TRUE)
   {
-    if (ast->type != TYPE_LIST) {
+    if (VAL_TYPE(ast) != TYPE_LIST) {
       MalVal *rv = eval_ast(ast, env);
       env_release(env);
       return rv;
@@ -528,7 +590,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
           return tail->head;
         }
         if (strcmp(symbol, "quasiquote") == 0) {
-          ast = EVAL_quasiquote(tail->head);
+          ast = EVAL_quasiquote(tail->head, env);
           if (exception) {
             env_release(env);
             return NIL;
@@ -536,7 +598,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
           continue;
         }
         if (strcmp(symbol, "quasiquoteexpand") == 0) {
-          return EVAL_quasiquote(tail->head);
+          return EVAL_quasiquote(tail->head, env);
         }
       }
       if (strcmp(symbol, "let*") == 0) {
@@ -565,10 +627,13 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       }
 
       if (strcmp(symbol, "try*") == 0) {
-        return EVAL_try(tail, env);
+        MalVal *rv = EVAL_try(tail, env);
+        env_release(env);
+        return rv;
       }
 
       if (strcmp(symbol, "comment") == 0) {
+        env_release(env);
         return NIL;
       }
     }
@@ -612,10 +677,7 @@ MalVal *EVAL(MalVal *ast, ENV *env)
       return NIL;
     }
 
-    gc_mark(ast, NULL);
-    gc_mark_list(list, NULL);
-    gc_mark_env(env, NULL);
-    gc(FALSE, FALSE);
+    gc(FALSE);
   }
 }
 
@@ -645,7 +707,7 @@ char *rep(ENV *repl_env, char *s)
     char *x = pr_str(exception, TRUE);
     fputs(x, stdout);
     fputs("\n", stdout);
-    malval_reset_temp(exception, NULL);
+    heap_free(x);
     exception = NULL;
     return PRINT(NULL);
   }
@@ -654,17 +716,22 @@ char *rep(ENV *repl_env, char *s)
 
 static void cleanup(void)
 {
-  env_flush(repl_env);
+  env_for_each(env_flush);
+  env_for_each(env_flush);
 
-  malval_reset_temp(_nil, NULL);
-  malval_reset_temp(_true, NULL);
-  malval_reset_temp(_false, NULL);
+  gc_add(_nil);
+  gc_add(_true);
+  gc_add(_false);
 
-  gc(TRUE, TRUE);
-  gc(TRUE, TRUE);
+  gc(TRUE);
+  gc(TRUE);
 
   env_release(repl_env);
   repl_env = NULL;
+
+  gc(TRUE);
+  gc(TRUE);
+
 
 #ifndef NDEBUG
   unsigned count, size;
@@ -692,7 +759,7 @@ static MalVal *builtin_load_file(List *args, ENV *env)
   if (!args || args->tail)
     malthrow("load-file requires one argument");
 
-  malval_reset_temp(load_file(VAL_STRING(args->head), env), NULL);
+  load_file(VAL_STRING(args->head), env);
 
   return NIL;
 }

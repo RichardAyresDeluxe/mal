@@ -63,7 +63,7 @@ struct FunctionWithMeta {
 typedef struct MalVal {
   struct MalVal *next;      /* used for garbage collection */
   uint8_t type:6;
-  uint8_t temp:1;           /* temporary value - don't garbage collect, yet */
+  uint8_t unused:1;
   uint8_t mark:1;           /* marked - do not collect garbage */
   union {
     int number;
@@ -95,8 +95,6 @@ MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
 
 uint16_t malval_hash(MalVal*);
-
-void malval_reset_temp(MalVal *, void*);
 
 extern MalVal *_nil, *_true, *_false;
 

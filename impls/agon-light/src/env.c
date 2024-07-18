@@ -8,9 +8,35 @@
 
 static void env_destroy(ENV *env);
 
+static ENV envs = {&envs, &envs, NULL, 0, NULL};
+
+static void mark_env(ENV *env)
+{
+  gc_mark_env(env, NULL);
+}
+
+typedef void (*env_op)(ENV*);
+
+static void do_env_op(void *env, void *_op)
+{
+  env_op *op = _op;
+  (*op)(env);
+}
+
+void env_for_each(void (*op)(ENV*))
+{
+  dlist_forall(&envs, do_env_op, &op);
+}
+
+void env_mark_all(void)
+{
+  env_for_each(mark_env);
+}
+
 ENV *env_create(ENV *parent, List *binds, List *values)
 {
   ENV *env = heap_malloc(sizeof(ENV));
+  dlist_add(&envs, env);
   env->map = map_createN(parent ? list_count(binds) : 251);
   env->ref_count = 1;
   env->parent = env_acquire(parent);
@@ -71,12 +97,12 @@ void env_destroy(ENV *env)
 
   map_destroy(env->map);
   env_release(env->parent);
+  dlist_remove(env);
   heap_free(env);
 }
 
 void env_set(ENV *env, const char *key, MalVal *val)
 {
-  malval_reset_temp(val, NULL);
   map_add(env->map, key, val);
 }
 
@@ -110,6 +136,5 @@ void gc_mark_env(struct ENV *env, void *data)
   if (!env)
     return;
 
-  gc_mark_map(env->map, data);
-  gc_mark_env(env->parent, data);
+  gc_mark_map(env->map, NULL);
 }

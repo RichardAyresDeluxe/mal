@@ -553,12 +553,10 @@ static MalVal *core_map(List *args, ENV *env)
 
 static MalVal *core_gc(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 0, 0, NULL))
+  if (!builtins_args_check(args, 0, 1, NULL))
     return NIL;
 
-  gc_mark_env(env, NULL);
-  gc_mark_list(args, NULL);
-  gc(TRUE, TRUE);
+  gc(args ? VAL_TRUE(args->head) : FALSE);
 
   return NIL;
 }
@@ -645,8 +643,15 @@ static MalVal *core_swap(List *args, ENV *env)
   MalVal *func = args->tail->head;
   List *fargs = cons(atom->data.atom, args->tail->tail);
 
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, "atom", atom);
+  env_set(tmp, "func", func);
+  env_set(tmp, "fargs", malval_list(fargs));
+  env_set(tmp, "args", malval_list(args));
+
   atom->data.atom = apply(VAL_FUNCTION(func), fargs);
   list_release(fargs);
+  env_release(tmp);
 
   return atom->data.atom;
 }

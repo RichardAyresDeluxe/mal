@@ -6,6 +6,7 @@
 #include "env.h"
 #include "function.h"
 #include "eval.h"
+#include "env.h"
 
 extern ENV *repl_env;
 
@@ -13,13 +14,11 @@ static MalVal *all_values = NULL;
 static unsigned values_count = 0;
 static unsigned values_max = 64;
 
-static void sweep(bool collect_temps)
+static void sweep(void)
 {
   MalVal **rover = &all_values;
   while (*rover) {
-    if (rover[0]->mark
-     || (rover[0]->temp && !collect_temps)
-    ) {
+    if (rover[0]->mark) {
       rover[0]->mark = 0;
       rover = &rover[0]->next;
       continue;
@@ -62,14 +61,14 @@ void gc_mark(MalVal *val, void *data)
   }
 }
 
-void gc(bool force, bool collect_temps)
+void gc(bool force)
 {
   if (!force && (values_count <= values_max))
     return;
 
-  gc_mark_env(repl_env, NULL);
+  env_mark_all();
   gc_mark(exception, NULL);
-  sweep(collect_temps);
+  sweep();
 
   values_max = 2 * values_count;
 }

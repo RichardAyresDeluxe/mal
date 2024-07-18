@@ -5,6 +5,7 @@
 #include "list.h"
 
 struct ENV {
+  struct ENV *prev, *next;
   struct Map *map;
   unsigned ref_count;
   struct ENV *parent;
@@ -19,5 +20,9 @@ void env_flush(ENV*);
 void env_set(ENV *env, const char *key, MalVal *val);
 ENV *env_find(ENV *env, const char *key);
 MalVal *env_get(ENV *env, const char *key);
+extern void env_mark_all(void);
+
+/** Call function on all environments */
+extern void env_for_each(void (*)(ENV*));
 
 #endif /* _ENV_H */
