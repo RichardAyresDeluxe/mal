@@ -32,12 +32,11 @@ static void warn_symbol_not_found(const char *name)
   unsigned l = strlen(name);
   l += 7; //strlen("symbol ");
   l += 10; //strlen(" not found");
-  char *s = heap_malloc(l + 1);
+  char *s = alloca(l + 1);
   strcpy(s, "symbol ");
   strcat(s, name);
   strcat(s, " not found");
-  err_warning(ERR_SYMBOL_NOT_FOUND, s);
-  heap_free(s);
+  exception = malval_string(s);
 }
 
 MalVal *eval_ast(MalVal *ast, ENV *env)
@@ -862,7 +861,11 @@ int main(int argc, char **argv)
     if (!s) {
       exit(0);
     }
-    puts(s);
+    __fpurge(stdout);
+    fputs(s, stdout);
+    fflush(stdout);
+    fputs("\n", stdout);
+    fflush(stdout);
     heap_free(s);
 #ifndef NDEBUG
     s = rep(repl_env, "(debug-info)");

@@ -116,47 +116,38 @@ MalVal *read_atom(lex_token_t *token, lex_token_t **next)
 
   switch(token->type) {
     case TOKEN_TYPE_NUMBER:
-      val = malval_create(TYPE_NUMBER);
-      val->data.number = strtol(token->value, NULL, 10);
+      val = malval_number(strtol(token->value, NULL, 10));
       *next = token->next;
       return val;
 
     case TOKEN_TYPE_SYMBOL:
       if (strcmp(token->value, "nil") == 0) {
-        val = malval_create(TYPE_NIL);
+        val = NIL;
         *next = token->next;
         return val;
       }
       else if (strcmp(token->value, "false") == 0) {
-        val = malval_create(TYPE_BOOL);
-        val->data.number = 0;
+        val = F;
         *next = token->next;
         return val;
       }
       else if (strcmp(token->value, "true") == 0) {
-        val = malval_create(TYPE_BOOL);
-        val->data.number = 1;
+        val = T;
         *next = token->next;
         return val;
       }
       /* not nil, false or true: fall through */
-      val = malval_create(TYPE_SYMBOL);
-      val->data.string = strdup(token->value);
+      val = malval_symbol(token->value);
       *next = token->next;
       return val;
 
     case TOKEN_TYPE_KEYWORD: {
-      char *s = heap_malloc(1 + strlen(token->value));
-      s[0] = -1;
-      strcpy(&s[1], &token->value[1]);
-      val = malval_create(TYPE_SYMBOL);
-      val->data.string = s;
+      val = malval_keyword(token->value);
       *next = token->next;
       return val;
     }
     case TOKEN_TYPE_STRING:
-      val = malval_create(TYPE_STRING);
-      val->data.string = strdup(token->value);
+      val = malval_string(token->value);
       *next = token->next;
       return val;
 

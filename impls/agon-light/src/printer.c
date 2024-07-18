@@ -13,9 +13,12 @@ char *pr_str(const MalVal *val, bool readable)
 {
   char buf[24];
 
+  if (!val)
+    return strdup("null");
+
   switch(val->type) {
     case TYPE_NUMBER:
-      itoa(val->data.number, buf, 10);
+      itoa(VAL_NUMBER(val), buf, 10);
       return strdup(buf);
 
     case TYPE_LIST:
@@ -29,25 +32,24 @@ char *pr_str(const MalVal *val, bool readable)
 
     case TYPE_STRING:
       if (readable) {
-        return pr_str_readable(val->data.string);
+        return pr_str_readable(VAL_STRING(val));
       }
-      return strdup(val->data.string);
+      return strdup(VAL_STRING(val));
 
     case TYPE_SYMBOL:
-      if (val->data.string[0] == -1) {
+      if (VAL_IS_KEYWORD(val)) {
         /* is keyword */
-        char *s = heap_malloc(strlen(val->data.string) + 1);
+        char *s = strdup(VAL_STRING(val));
         s[0] = ':';
-        strcpy(&s[1], &val->data.string[1]);
         return s;
       }
-      return strdup(val->data.string);
+      return strdup(VAL_STRING(val));
 
     case TYPE_NIL:
       return strdup("nil");
 
     case TYPE_BOOL:
-      return strdup(val->data.bool ? "true" : "false");
+      return strdup(VAL_IS_TRUE(val) ? "true" : "false");
 
     case TYPE_FUNCTION: {
       Function *f = VAL_FUNCTION(val);

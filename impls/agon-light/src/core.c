@@ -38,7 +38,7 @@ bool builtins_all_numeric(List *list)
 {
   for (List *arg = list; arg; arg = arg->tail) {
     if (!VAL_IS_NUMERIC(arg->head)) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "not a numeric argument");
+      exception = malval_string("not a numeric argument");
       return FALSE;
     }
   }
