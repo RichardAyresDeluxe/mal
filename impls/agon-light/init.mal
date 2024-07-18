@@ -83,11 +83,6 @@
     (if (< start end)
       (cons start (range (+ step start) end step)))))
 
-(defn map
-  [f xs]
-  (if (empty? xs) '()
-    (cons (f (first xs)) (map f (rest xs)))))
-
 (defn reduce
    ([f xs] (reduce f (first xs) (rest xs)))
    ([f val xs]

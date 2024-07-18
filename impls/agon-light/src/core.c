@@ -532,6 +532,24 @@ static MalVal *core_reverse(List *args, ENV *env)
   return malval_list_weak(result);
 }
 
+static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
+static MalVal *core_map(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_map))
+    return NIL;
+
+  List *result = NULL;
+  Function *f = VAL_FUNCTION(args->head);
+  List *input = list_from_container(args->tail->head);
+  for (; input; input = input->tail) {
+    List a = {NULL, 1, input->head};
+    result = cons_weak(apply(f, &a), result);
+  }
+
+  linked_list_reverse((void**)&result);
+  return malval_list_weak(result);
+}
+
 static MalVal *core_gc(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, 1, NULL))
@@ -1226,6 +1244,7 @@ struct ns core_ns[] = {
   {"rest", core_rest},
   {"nth", core_nth},
   {"reverse", core_reverse},
+  {"map", core_map},
   {"list", core_list},
   {"list?", core_is_list},
   {"empty?", core_is_empty},
