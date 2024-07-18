@@ -867,6 +867,7 @@ int main(int argc, char **argv)
     fputs("\n", stdout);
     fflush(stdout);
     heap_free(s);
+    gc(TRUE);
 #ifndef NDEBUG
     s = rep(repl_env, "(debug-info)");
     puts(s);
