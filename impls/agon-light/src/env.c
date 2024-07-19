@@ -84,7 +84,7 @@ void env_flush(ENV *env)
   if (!env)
     return;
 
-  map_destroy(env->map);
+  map_release(env->map);
   env->map = map_create();
 
   env_flush(env->parent);
@@ -95,7 +95,7 @@ void env_destroy(ENV *env)
   if (!env)
     return;
 
-  map_destroy(env->map);
+  map_release(env->map);
   env_release(env->parent);
   dlist_remove(env);
   heap_free(env);

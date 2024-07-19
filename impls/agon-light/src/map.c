@@ -18,6 +18,7 @@ struct entry {
 
 struct Map {
   unsigned table_size;
+  unsigned ref_count;
   struct entry **table;
 };
 
@@ -39,6 +40,7 @@ static unsigned next_size(unsigned p)
 Map *map_createN(unsigned init_size)
 {
   Map *map = heap_malloc(sizeof(Map));
+  map->ref_count = 1;
   map->table_size = next_size(init_size);
   map->table = heap_calloc(map->table_size, sizeof(struct entry*));
   return map;
@@ -47,6 +49,13 @@ Map *map_createN(unsigned init_size)
 Map *map_create(void)
 {
   return map_createN(TABLE_SIZE_INIT);
+}
+
+Map *map_acquire(Map *map)
+{
+  if (map)
+    map->ref_count++;
+  return map;
 }
 
 static void destroy_table(Map *map)
@@ -61,7 +70,7 @@ static void destroy_table(Map *map)
   }
 }
 
-void map_destroy(Map *map)
+static void map_destroy(Map *map)
 {
   if (!map)
     return;
@@ -69,6 +78,12 @@ void map_destroy(Map *map)
   destroy_table(map);
   heap_free(map->table);
   heap_free(map);
+}
+
+void map_release(Map *map)
+{
+  if (map->ref_count-- == 1)
+    map_destroy(map);
 }
 
 unsigned map_count(Map *map)
@@ -167,7 +182,7 @@ static void rebuild(Map *map, unsigned for_size)
   unsigned new_size = next_size(for_size);
   struct entry **new_table = heap_calloc(new_size, sizeof(struct entry*));
 
-  Map tmp = {new_size, new_table};
+  Map tmp = {new_size, 1, new_table};
   map_foreach(map, insert_entry, &tmp);
 
   destroy_table(map);

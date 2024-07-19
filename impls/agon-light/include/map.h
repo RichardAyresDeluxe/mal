@@ -8,7 +8,8 @@ typedef struct Map Map;
 
 Map *map_createN(unsigned init_size);
 Map *map_create(void);
-void map_destroy(Map*);
+Map *map_acquire(Map*);
+void map_release(Map*);
 void map_add(Map *, MalVal *key, MalVal *value);
 void map_remove(Map *, MalVal *key);
 
