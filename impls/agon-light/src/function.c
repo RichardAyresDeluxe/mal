@@ -224,7 +224,7 @@ MalVal *apply(Function *func, List *args)
 
   struct Body *b = NULL;
   ENV *env = function_bind(func, args, &b);
-  env_set(env, "__args", malval_list(args));
+  env_set(env, malval_symbol("__args"), malval_list(args));
 
   if (b == NULL) {
     err_warning(ERR_ARGUMENT_MISMATCH, "function arity mismatch");

@@ -50,16 +50,16 @@ ENV *env_create(ENV *parent, List *binds, List *values)
 
     if (bind->head->data.string[0] == '&') {
       /* variadic, so set to the remaining values and stop binding */
-      env_set(env, &bind->head->data.string[1], malval_list(value));
+      env_set(env, malval_symbol(&bind->head->data.string[1]), malval_list(value));
       break;
     }
 
-    env_set(env, bind->head->data.string, value->head);
+    env_set(env, bind->head, value->head);
   }
 
   if (bind && !value && bind->head->data.string[0] == '&') {
     /* have a variadic binding, but no more values - make empty list */
-    env_set(env, &bind->head->data.string[1], malval_list(NULL));
+    env_set(env, malval_symbol(&bind->head->data.string[1]), malval_list(NULL));
   }
 
   return env;
@@ -101,12 +101,12 @@ void env_destroy(ENV *env)
   heap_free(env);
 }
 
-void env_set(ENV *env, const char *key, MalVal *val)
+void env_set(ENV *env, MalVal *key, MalVal *val)
 {
   map_add(env->map, key, val);
 }
 
-ENV *env_find(ENV *env, const char *key)
+ENV *env_find(ENV *env, MalVal *key)
 {
   if (!env)
     return NULL;
@@ -118,7 +118,7 @@ ENV *env_find(ENV *env, const char *key)
 }
 
 
-MalVal *env_get(ENV *env, const char *key)
+MalVal *env_get(ENV *env, MalVal *key)
 {
   if (!env)
     return NULL;

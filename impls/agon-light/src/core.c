@@ -617,10 +617,10 @@ static MalVal *core_swap(List *args, ENV *env)
   List *fargs = cons(atom->data.atom, args->tail->tail);
 
   ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, "atom", atom);
-  env_set(tmp, "func", func);
-  env_set(tmp, "fargs", malval_list(fargs));
-  env_set(tmp, "args", malval_list(args));
+  env_set(tmp, malval_symbol("atom"), atom);
+  env_set(tmp, malval_symbol("func"), func);
+  env_set(tmp, malval_symbol("fargs"), malval_list(fargs));
+  env_set(tmp, malval_symbol("args"), malval_list(args));
 
   atom->data.atom = apply(VAL_FUNCTION(func), fargs);
   list_release(fargs);
@@ -901,6 +901,9 @@ static MalVal *core_get(List *args, ENV *env)
     return NIL;
 
   MalVal *not_found = args->tail->tail ? args->tail->tail->head : NIL;
+
+  if (VAL_TYPE(args->head) == TYPE_NIL)
+    return not_found;
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
     List *map = VAL_MAP(args->head);
