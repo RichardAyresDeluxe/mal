@@ -150,13 +150,22 @@ static MalVal *divide(List *args, ENV *env)
 
 static MalVal *lessthan(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 2, ARGS_MAX, NULL)
+  if (!builtins_args_check(args, 1, ARGS_MAX, NULL)
    || !builtins_all_numeric(args))
   {
     return NIL;
   }
 
-  return args->head->data.number < args->tail->head->data.number ? T : F;
+  if (!args->tail)
+    return T;
+
+  do {
+    if (VAL_NUMBER(args->head) >= VAL_NUMBER(args->tail->head))
+      return F;
+    args = args->tail;
+  } while (args->tail);
+
+  return T;
 }
 
 static MalVal *core_mod(List *args, ENV *env)
@@ -231,7 +240,7 @@ static MalVal *core_cons(List *args, ENV *env)
 
 static MalVal *core_concat(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 0, ARGS_MAX, types_containers))
+  if (!builtins_args_check(args, 0, ARGS_MAX, NULL))
     return NIL;
 
   List *result = NULL;
@@ -787,30 +796,47 @@ static MalVal *assoc_vec(List *args, ENV *env)
 {
   MalVal *vec = args->head;
 
-  if ((list_count(args->tail) % 2) != 0) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
-    return NIL;
-  }
+  if ((list_count(args->tail) % 2) != 0)
+    malthrow("must be even number of arguments");
 
   List *result = list_duplicate(VAL_VEC(vec));
   list_reverse(&result);
+
   unsigned c = list_count(result);
 
   for (List *entry = args->tail; entry; entry = entry->tail->tail) {
     if (VAL_TYPE(entry->head) != TYPE_NUMBER) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "require number as index to vec");
       list_release(result);
-      return NIL;
-    }
-    unsigned index = entry->head->data.number;
-    if (index != c) {
-      list_release(result);
-      exception = malval_string("Index out of bounds");
-      return NIL;
+      malthrow("require number as index to vec");
     }
 
-    result = cons_weak(entry->tail->head, result);
-    c++;
+    unsigned index = VAL_NUMBER(entry->head);
+
+    if (index == c) {
+      /* append */
+      result = cons_weak(entry->tail->head, result);
+      c++;
+    }
+    else if (index >= 0 && index < c) {
+      /* replace */
+      List *tmp = NULL;
+      List *e = result;
+      list_reverse(&e);
+      for (; index-- > 0; e = e->tail) {
+        tmp = cons_weak(e->head, tmp);
+      }
+      tmp = cons_weak(entry->tail->head, tmp);
+      for (e = e->tail; e; e = e->tail) {
+        tmp = cons_weak(e->head, tmp);
+      }
+      list_release(result);
+      result = tmp;
+    }
+    else {
+      list_release(result);
+      malthrow("Index out of bounds");
+    }
+
   }
 
   list_reverse(&result);
@@ -871,8 +897,10 @@ static MalVal *core_dissoc(List *args, ENV *env)
 
 static MalVal *core_get(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 2, 2, types_container))
+  if (!builtins_args_check(args, 2, 3, NULL))
     return NIL;
+
+  MalVal *not_found = args->tail->tail ? args->tail->tail->head : NIL;
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
     List *map = VAL_MAP(args->head);
@@ -881,7 +909,7 @@ static MalVal *core_get(List *args, ENV *env)
       if (malval_equals(key, entry->head))
         return entry->tail->head;
     }
-    return NIL;
+    return not_found;
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
@@ -892,7 +920,7 @@ static MalVal *core_get(List *args, ENV *env)
       return NIL;
     }
     MalVal *rv = list_nth(vec, index->data.number);
-    return rv ? rv : NIL;
+    return rv ? rv : not_found;
   }
 
   exception = malval_string("get requires vec or map");

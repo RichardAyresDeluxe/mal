@@ -5,6 +5,8 @@
 (defmacro! defn (fn* [name & body] `(def! ~name (fn ~@body))))
 (defmacro! defmacro (fn* [name & body] `(defmacro! ~name (fn ~@body))))
 
+(defn identity [x] x)
+
 (defmacro try [& body] `(try* (do ~@body)))
 (defmacro catch [& body] `(catch* (do ~@body)))
 ;; (defmacro fn [& body] `(fn* ~@body))
@@ -12,8 +14,8 @@
 (defn dec [a] (- a 1))
 
 (def gensym
-  (let [counter (atom 0)]
-    (fn 
+  (let* [counter (atom 0)]
+    (fn* 
       ([] (gensym "G__"))
       ([pfx] (symbol (str pfx (swap! counter inc)))))))
 
@@ -36,11 +38,11 @@
   ([n coll] (partition n n coll))
   ([n step coll] (partition n step nil coll))
   ([n step pad coll]
-   (if (not (empty? coll))
+   (when (seq coll)
      (let [xs (seq (take* n coll))]
        (if (= (count xs) n)
          (cons xs (partition n step pad (drop step coll)))
-         (if (not (nil? pad))
+         (when-not (nil? pad)
            (list (seq (take* n (concat xs pad))))))))))
 
 (defmacro loop
@@ -48,9 +50,8 @@
   (let [fsym (gensym)
         syms (map first (partition 1 2 bindings))
         vals (map first (partition 1 2 (rest bindings)))]
-    `(let [__recur_target '~fsym
-           ~fsym (fn [~@syms] (do ~@body))]
-
+    `(let* [__recur_target '~fsym
+            ~fsym (fn [~@syms] (do ~@body))]
       (~fsym ~@vals))))
 
 (defn drop
@@ -65,9 +66,13 @@
       (if (zero? n) out
         (recur (dec n) (rest xs) (cons (first xs) out))))))
 
+(defn split-at
+  [n coll]
+  (vec (list (take n coll) (drop n coll))))
+
 (defn comp
   ([f] f)
-  ([f g] (fn [&args] (f (apply g args))))
+  ([f g] (fn [& args] (f (apply g args))))
   ([f g & more] (apply comp (comp f g) more)))
 
 (defn not [a] (if a false true))
@@ -75,9 +80,20 @@
 (defn complement
   [f] (fn [& args] (not (apply f args))))
 
-(defn > [a b] (< b a))
-(defn >= [a b] (not (< a b)))
-(defn <= [a b] (>= b a))
+(defn >
+  ([_a] true)
+  ([a b] (< b a))
+  ([a b & more] (and (> a b) (apply > b more))))
+
+(defn >=
+  ([_a] true)
+  ([a b] (not (< a b)))
+  ([a b & more] (and (>= a b) (apply >= b more))))
+
+(defn <=
+  ([_a] true)
+  ([a b] (>= b a))
+  ([a b & more] (and (<= a b) (apply <= b more))))
 
 (defn not= [a b] (if (= a b) false true))
 
@@ -94,11 +110,21 @@
             (recur (+ n step) (cons n result))))))))
 
 (defn reduce
-   ([f xs] (reduce f (first xs) (rest xs)))
+   ([f xs]
+    (when-not (empty? xs)
+      (reduce f (first xs) (rest xs))))
    ([f val xs]
     (if (empty? xs)
       val
       (reduce f (f val (first xs)) (rest xs)))))
+
+(defn mapcat
+  ([f coll]
+   (when (seq coll)
+     (concat (f (first coll)) (mapcat f (rest coll)))))
+  ([f c1 c2]
+   (when (and (seq c1) (seq c2))
+     (concat (f (first c1) (first c2)) (mapcat f (rest c1) (rest c2))))))
 
 (defmacro second [&xs] `(first (rest ~xs)))
 
@@ -148,14 +174,14 @@
 (defmacro or
   ([] nil)
   ([a] a)
-  ([a &more] (let [ora (gensym "or_")]
-               `(let [~ora ~a]
-                  (if ~ora ~ora (or ~@more))))))
+  ([a & more] (let [ora (gensym "or_")]
+                 `(let [~ora ~a]
+                    (if ~ora ~ora (or ~@more))))))
 
 (defmacro and
   ([] true)
   ([a] a)
-  ([a &more] `(if ~a (and ~@more))))
+  ([a & more] `(if ~a (and ~@more))))
 
 (defmacro cond
   ([] nil)
@@ -164,8 +190,8 @@
    `(if ~test ~then (cond ~@rest))))
 
 (defmacro case
-  ([test-expr] nil)
-  ([test-expr default] default)
+  ([_test-expr] nil)
+  ([_test-expr default] default)
   ([test-expr comp-val expr]
    (let [test-sym (gensym)]
      `(let [~test-sym ~test-expr]
@@ -234,3 +260,83 @@
        (not-any?
          (comp zero? (partial mod n))
          (range 2 (inc (/ n 2))))))
+
+(defmacro time
+  [& body]
+  (let [start (gensym)
+        end (gensym)
+        retval (gensym)]
+   `(let [~start (time-ms)
+          ~retval (do ~@body)
+          ~end (time-ms)]
+      (println "\"Elapsed time:" (- ~end ~start) "msecs\"")
+      ~retval)))
+
+(defmacro dotimes
+  [bindings & body]
+  (let [bound-sym (first bindings)
+        count (second bindings)
+        sym (gensym)]
+    `(loop [~sym 0]
+       (when (< ~sym ~count)
+         (let* [~bound-sym ~sym]
+           (do ~@body))
+         (recur (inc ~sym))))))
+
+(defn max
+  ([a] a)
+  ([a b] (if (> a b) a b))
+  ([a b & more] (apply max (max a b) more)))
+(defn min
+  ([a] a)
+  ([a b] (if (< a b) a b))
+  ([a b & more] (apply min (min a b) more)))
+
+(defn get-in
+  ([m ks] (get-in m ks nil))
+  ([m ks default]
+   (let* [k (first ks)
+          ks' (rest ks)]
+     (if (empty? ks')
+       (get m k default)
+       (if (contains? m k)
+         (get-in (get m k) ks' default)
+         default)))))
+
+(defn assoc-in
+  [m ks v]
+  (let [k (first ks)
+        ks' (rest ks)]
+    (if (empty? ks')
+      (assoc m k v)
+      (assoc m k (assoc-in (get m k) ks' v)))))
+
+(defn update
+  [m k f]
+  (assoc m k (f (get m k))))
+
+(defn update-in
+  [m ks f]
+  (let [k (first ks)
+        ks' (rest ks)]
+    (if (empty? ks')
+      (update m k f)
+      (assoc m k (update-in (get m k) ks' f)))))
+
+(defmacro for
+  [bindings body]
+  (if (empty? bindings)
+    `(list ~body)
+    (let [bound-sym (first bindings)
+          bound-seq (second bindings)
+          rest-bindings (rest (rest bindings))
+          a-seq (gensym)
+          a-out (gensym)]
+      `(loop [~a-seq ~bound-seq
+              ~a-out nil]
+         (if (empty? ~a-seq)
+           ~a-out
+           (recur (rest ~a-seq)
+                  (concat ~a-out
+                          (let* [~bound-sym (first ~a-seq)]
+                            (for [~@rest-bindings] ~body)))))))))
