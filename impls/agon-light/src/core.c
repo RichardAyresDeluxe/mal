@@ -326,7 +326,7 @@ static MalVal *core_count(List *args, ENV *env)
 
 static MalVal *core_equals(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 2, ARGS_MAX, NULL))
+  if (!builtins_args_check(args, 1, ARGS_MAX, NULL))
     return NIL;
 
   MalVal *head = args->head;
