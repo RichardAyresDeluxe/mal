@@ -318,6 +318,8 @@ static MalVal *core_count(List *args, ENV *env)
       return malval_number(list_count(VAL_VEC(args->head)));
     case TYPE_MAP:
       return malval_number(map_count(VAL_MAP(args->head)));
+    case TYPE_SET:
+      return malval_number(map_count(VAL_SET(args->head)));
   }
 
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot count object");
@@ -1110,6 +1112,27 @@ static MalVal *core_conj(List *args, ENV *env)
 
     MalVal *rv = malval_set(set);
     map_release(set);
+    return rv;
+  }
+
+  if (VAL_TYPE(args->head) == TYPE_MAP) {
+    Map *map = map_duplicate(VAL_MAP(args->head));
+
+    for (List *arg = args->tail; arg; arg = arg->tail) {
+      if (VAL_TYPE(arg->head) != TYPE_VECTOR) {
+        map_release(map);
+        malthrow("conj on map requires vectors as arguments");
+      }
+      List *l = VAL_VEC(arg->head);
+      if (list_count(l) != 2) {
+        map_release(map);
+        malthrow("vectors must have 2 items");
+      }
+      map_add(map, l->head, l->tail->head);
+    }
+
+    MalVal *rv = malval_map(map);
+    map_release(map);
     return rv;
   }
 

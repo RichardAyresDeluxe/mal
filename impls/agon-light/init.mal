@@ -340,3 +340,8 @@
                   (concat ~a-out
                           (let* [~bound-sym (first ~a-seq)]
                             (for [~@rest-bindings] ~body)))))))))
+
+(defn into
+  [to from]
+  (apply conj to from))
+
