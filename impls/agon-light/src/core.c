@@ -897,6 +897,13 @@ static MalVal *core_get(List *args, ENV *env)
   if (VAL_TYPE(args->head) == TYPE_NIL)
     return not_found;
 
+  if (VAL_TYPE(args->head) == TYPE_SET) {
+    Map *set = VAL_SET(args->head);
+    MalVal *key = args->tail->head;
+    MalVal *found = map_find(set, key);
+    return found ? key : not_found;
+  }
+
   if (VAL_TYPE(args->head) == TYPE_MAP) {
     Map *map = VAL_MAP(args->head);
     MalVal *key = args->tail->head;
@@ -926,6 +933,10 @@ static MalVal *core_contains(List *args, ENV *env)
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
     return map_contains(VAL_MAP(args->head), args->tail->head) ? T : F;
+  }
+
+  if (VAL_TYPE(args->head) == TYPE_SET) {
+    return map_contains(VAL_SET(args->head), args->tail->head) ? T : F;
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
@@ -1092,8 +1103,34 @@ static MalVal *core_conj(List *args, ENV *env)
     return malval_list_weak(result);
   }
 
+  if (VAL_TYPE(args->head) == TYPE_SET) {
+    Map *set = map_duplicate(VAL_SET(args->head));
+    for (List *arg = args->tail; arg; arg = arg->tail)
+      map_add(set, arg->head, NIL);
+
+    MalVal *rv = malval_set(set);
+    map_release(set);
+    return rv;
+  }
+
   exception = malval_string("not a container");
   return NIL;
+}
+
+static MalType types_disj[] = {TYPE_SET, 0};
+static MalVal *core_disj(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, ARGS_MAX, types_disj))
+    return NIL;
+
+  Map *set = map_duplicate(VAL_SET(args->head));
+
+  for (List *arg = args->tail; arg; arg = arg->tail)
+    map_remove(set, arg->head);
+
+  MalVal *rv = malval_set(set);
+  map_release(set);
+  return rv;
 }
 
 static MalVal *core_meta(List *args, ENV *env)
@@ -1247,6 +1284,7 @@ struct ns core_ns[] = {
   {"meta", core_meta},
   {"with-meta", core_with_meta},
   {"conj", core_conj},
+  {"disj", core_disj},
 
   {"fn?", core_is_fn},
   {"macro?", core_is_macro},

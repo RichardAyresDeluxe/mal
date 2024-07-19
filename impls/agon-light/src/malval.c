@@ -90,6 +90,15 @@ MalVal *malval_map(Map *map)
   return val;
 }
 
+MalVal *malval_set(Map *set)
+{
+  MalVal *val = malval_create(TYPE_SET);
+  val->data.map = heap_malloc(sizeof(struct SetWithMeta));
+  val->data.set->set = map_acquire(set);
+  val->data.set->meta = NIL;
+  return val;
+}
+
 MalVal *malval_function(Function *fn)
 {
   MalVal *val = malval_create(TYPE_FUNCTION);
@@ -125,23 +134,36 @@ void malval_free(MalVal *val)
   switch(val->type) {
     case TYPE_STRING:
     case TYPE_SYMBOL:
-      heap_free(val->data.string);
+      heap_free(VAL_STRING(val));
       break;
     case TYPE_MAP:
-      map_release(val->data.map->map);
+      map_release(VAL_MAP(val));
       heap_free(val->data.map);
       break;
+    case TYPE_SET:
+      map_release(VAL_SET(val));
+      heap_free(val->data.set);
+      break;
     case TYPE_VECTOR:
-      list_release(val->data.vec->vec);
+      list_release(VAL_VEC(val));
       heap_free(val->data.vec);
       break;
     case TYPE_LIST:
-      list_release(val->data.list->list);
+      list_release(VAL_LIST(val));
       heap_free(val->data.list);
       break;
     case TYPE_FUNCTION:
-      function_destroy(val->data.fn->fn);
+      function_destroy(VAL_FUNCTION(val));
       heap_free(val->data.fn);
+      break;
+    case TYPE_NUMBER:
+    case TYPE_ATOM:
+    case TYPE_BOOL:
+    case TYPE_NIL:
+      /* nothing */
+      break;
+    default:
+      exception = malval_string("Don't know how to delete value");
       break;
   }
 

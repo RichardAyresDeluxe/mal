@@ -215,12 +215,12 @@ static lexer_t lex_vector_end(lexer_t lexer) {
 static lexer_t lex_vector_start(lexer_t lexer) {
     return lex_seq_start(lexer, 1, TOKEN_TYPE_VEC_START, lex_vector_end);
 }
-// static lexer_t lex_set_end(lexer_t lexer) {
-//     return lex_seq_end(lexer, '}', TOKEN_TYPE_SET_END);
-// }
-// static lexer_t lex_set_start(lexer_t lexer) {
-//     return lex_seq_start(lexer, 2, TOKEN_TYPE_SET_START, lex_set_end);
-// }
+static lexer_t lex_set_end(lexer_t lexer) {
+    return lex_seq_end(lexer, '}', TOKEN_TYPE_SET_END);
+}
+static lexer_t lex_set_start(lexer_t lexer) {
+    return lex_seq_start(lexer, 2, TOKEN_TYPE_SET_START, lex_set_end);
+}
 // static lexer_t lex_lambda_end(lexer_t lexer) {
 //     return lex_seq_end(lexer, ')', TOKEN_TYPE_LAMBDA_END);
 // }
@@ -389,19 +389,19 @@ static lexer_t lex_sequence_inside(lexer_t lexer)
         case '}':
         case ']': return lex_return(lexer);
 
-        // case '#': {
-        //     const char *peeks = lex_peekn(lexer, 2);
-        //     if (peeks[1] == '{')
-        //         return lex_state_call(lexer, lex_set_start);
-        //     if (peeks[1] == '(')
-        //         return lex_state_call(lexer, lex_lambda_start);
-        //     if (peeks[1] == '\'') {
-        //         lexer = lex_readn(lexer, 2);
-        //         lexer = lex_emit(lexer, TOKEN_TYPE_SYMBOL_REF);
-        //         return lex_state_call(lexer, lex_symbol);
-        //     }
-        //     break;
-        // }
+        case '#': {
+            const char *peeks = lex_peekn(lexer, 2);
+            if (peeks[1] == '{')
+                return lex_state_call(lexer, lex_set_start);
+            // if (peeks[1] == '(')
+            //     return lex_state_call(lexer, lex_lambda_start);
+            // if (peeks[1] == '\'') {
+            //     lexer = lex_readn(lexer, 2);
+            //     lexer = lex_emit(lexer, TOKEN_TYPE_SYMBOL_REF);
+            //     return lex_state_call(lexer, lex_symbol);
+            // }
+            break;
+        }
 
         // case '^': {
         //     const char *peeks = lex_peekn(lexer, 2);

@@ -30,6 +30,9 @@ char *pr_str(const MalVal *val, bool readable)
     case TYPE_MAP:
       return pr_str_map(VAL_MAP(val), readable);
 
+    case TYPE_SET:
+      return pr_str_set(VAL_SET(val), readable);
+
     case TYPE_STRING:
       if (readable) {
         return pr_str_readable(VAL_STRING(val));
@@ -138,19 +141,22 @@ char *pr_str_vector(List *list, bool readable)
 struct pr_map_t {
   char *s;
   bool readable;
+  bool show_val;
 };
 
 static void _pr_map(MalVal *key, MalVal *val, void *_data)
 {
   struct pr_map_t *pr = _data;
   char *k = pr_str(key, pr->readable);
-  char *v = pr_str(val, pr->readable);
   catstr(&pr->s, k);
   catstr(&pr->s, " ");
-  catstr(&pr->s, v);
-  catstr(&pr->s, " ");
   heap_free(k);
-  heap_free(v);
+  if (pr->show_val) {
+    char *v = pr_str(val, pr->readable);
+    catstr(&pr->s, v);
+    catstr(&pr->s, " ");
+    heap_free(v);
+  }
 }
 
 char *pr_str_map(Map *map, bool readable)
@@ -158,7 +164,7 @@ char *pr_str_map(Map *map, bool readable)
   if (map_count(map) == 0)
     return strdup("{}");
 
-  struct pr_map_t pr = { strdup("{"), readable };
+  struct pr_map_t pr = { strdup("{"), readable, TRUE };
 
   map_foreach(map, _pr_map, &pr);
   pr.s[strlen(pr.s)-1] = '\0';
@@ -166,6 +172,22 @@ char *pr_str_map(Map *map, bool readable)
   catstr(&pr.s, "}");
 
   return pr.s;
+}
+
+char *pr_str_set(Map *set, bool readable)
+{
+  if (map_count(set) == 0)
+      return strdup("#{}");
+
+  struct pr_map_t pr = { strdup("#{"), readable, FALSE };
+
+  map_foreach(set, _pr_map, &pr);
+  pr.s[strlen(pr.s)-1] = '\0';
+
+  catstr(&pr.s, "}");
+
+  return pr.s;
+
 }
 
 static char *catchar(char **sptr, char c)

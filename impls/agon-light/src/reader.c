@@ -19,6 +19,7 @@ static MalVal *read_atom(lex_token_t *token, lex_token_t **next);
 static MalVal *read_list(lex_token_t *token, lex_token_t **next);
 static MalVal *read_vector(lex_token_t *token, lex_token_t **next);
 static MalVal *read_map(lex_token_t *token, lex_token_t **next);
+static MalVal *read_set(lex_token_t *token, lex_token_t **next);
 static MalVal *reader_macro(const char *name, lex_token_t *token, lex_token_t **next);
 static MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next);
 
@@ -101,6 +102,9 @@ MalVal *read_form(lex_token_t *token, lex_token_t **next)
       break;
     case TOKEN_TYPE_MAP_START:
       rv = read_map(token->next, next);
+      break;
+    case TOKEN_TYPE_SET_START:
+      rv = read_set(token->next, next);
       break;
     default:
       rv = read_atom(token, next);
@@ -190,6 +194,24 @@ MalVal *read_vector(lex_token_t *token, lex_token_t **next)
 {
   MalVal *val = read_list(token, next);
   val->type = TYPE_VECTOR;
+  return val;
+}
+
+MalVal *read_set(lex_token_t *token, lex_token_t **next)
+{
+  Map *set = map_create();
+
+  lex_token_t *rover = token;
+  while (rover && !TOKEN_IS_END(rover)) {
+    MalVal *val = read_form(rover, &rover);
+
+    map_add(set, val, NIL);
+  }
+
+  *next = rover ? rover->next : NULL;
+
+  MalVal *val = malval_set(set);
+  map_release(set);
   return val;
 }
 

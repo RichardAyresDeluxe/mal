@@ -21,6 +21,7 @@ typedef uint8_t MalType;
 #define TYPE_LIST     ((MalType)0x21)
 #define TYPE_VECTOR   ((MalType)0x22)
 #define TYPE_MAP      ((MalType)0x23)
+#define TYPE_SET      ((MalType)0x24)
 #define TYPE_STRING   ((MalType)0x31)
 #define TYPE_SYMBOL   ((MalType)0x32)
 // #define TYPE_KEYWORD   TYPE_SYMBOL /* keywords are symbols */
@@ -56,6 +57,11 @@ struct MapWithMeta {
   struct MalVal *meta;
 };
 
+struct SetWithMeta {
+  struct Map *set;
+  struct MalVal *meta;
+};
+
 struct FunctionWithMeta {
   struct Function *fn;
   struct MalVal *meta;
@@ -75,6 +81,7 @@ typedef struct MalVal {
     struct ListWithMeta *list;
     struct VecWithMeta *vec;
     struct MapWithMeta *map;
+    struct SetWithMeta *set;
     struct FunctionWithMeta *fn;
   } data;
 } MalVal;
@@ -91,6 +98,7 @@ MalVal *malval_list(struct List*);
 MalVal *malval_list_weak(struct List*);
 MalVal *malval_vector(struct List*);
 MalVal *malval_map(struct Map*);
+MalVal *malval_set(struct Map*);
 MalVal *malval_function(struct Function*);
 MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
@@ -113,6 +121,7 @@ extern MalVal *_nil, *_true, *_false;
 #define VAL_LIST(val) ((val)->data.list->list)
 #define VAL_VEC(val) ((val)->data.vec->vec)
 #define VAL_MAP(val) ((val)->data.map->map)
+#define VAL_SET(val) ((val)->data.set->set)
 #define VAL_FUNCTION(val) ((val)->data.fn->fn)
 #define VAL_NUMBER(val) ((val)->data.number)
 #define VAL_BOOL(val) ((val)->data.bool)
