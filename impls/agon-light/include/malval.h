@@ -36,6 +36,7 @@ typedef uint8_t MalType;
 #define VAL_IS_CONTAINER(val) (VAL_METATYPE(val) == METATYPE_CONTAINER)
 
 struct List;
+struct Map;
 struct ENV;
 struct MalVal;
 struct Function;
@@ -51,7 +52,7 @@ struct VecWithMeta {
 };
 
 struct MapWithMeta {
-  struct List *map;
+  struct Map *map;
   struct MalVal *meta;
 };
 
@@ -89,7 +90,7 @@ MalVal *malval_string(const char *);
 MalVal *malval_list(struct List*);
 MalVal *malval_list_weak(struct List*);
 MalVal *malval_vector(struct List*);
-MalVal *malval_map(struct List*);
+MalVal *malval_map(struct Map*);
 MalVal *malval_function(struct Function*);
 MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
@@ -124,10 +125,5 @@ void malval_free(MalVal*);
 unsigned malval_size(MalVal*, bool);
 
 bool malval_equals(MalVal*, MalVal*);
-
-/* map-as-list stuff */
-MalVal *map_get(struct List *map, MalVal *key);
-#define map_contains(map, key) (map_get((map), (key)) != NULL)
-struct List *map_normalise(struct List *map);
 
 #endif /* _MALVAL_H */

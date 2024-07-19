@@ -1,5 +1,6 @@
 #include "malval.h"
 #include "list.h"
+#include "map.h"
 #include "heap.h"
 #include "gc.h"
 #include "function.h"
@@ -80,11 +81,11 @@ MalVal *malval_vector(List *list)
   return val;
 }
 
-MalVal *malval_map(List *list)
+MalVal *malval_map(Map *map)
 {
   MalVal *val = malval_create(TYPE_MAP);
   val->data.map = heap_malloc(sizeof(struct MapWithMeta));
-  val->data.map->map = list_acquire(list);
+  val->data.map->map = map_acquire(map);
   val->data.map->meta = NIL;
   return val;
 }
@@ -127,7 +128,7 @@ void malval_free(MalVal *val)
       heap_free(val->data.string);
       break;
     case TYPE_MAP:
-      list_release(val->data.map->map);
+      map_release(val->data.map->map);
       heap_free(val->data.map);
       break;
     case TYPE_VECTOR:
@@ -161,9 +162,7 @@ unsigned malval_size(MalVal *val, bool deep)
       }
       break;
     case TYPE_MAP:
-      for (List *rover = VAL_MAP(val); rover; rover = rover->tail) {
-        sz += malval_size(rover->head, deep);
-      }
+      sz += map_size(VAL_MAP(val), deep);
       break;
     case TYPE_VECTOR:
       for (List *rover = VAL_VEC(val); rover; rover = rover->tail) {
@@ -176,51 +175,6 @@ unsigned malval_size(MalVal *val, bool deep)
   }
 
   return sz;
-}
-
-MalVal *map_get(List *map, MalVal *key)
-{
-  for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
-    if (malval_equals(key, entry->head))
-      return entry->tail->head;
-  }
-  return NULL;;
-}
-
-List *map_normalise(List *map)
-{
-  List *result = NULL;
-
-  for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
-    if (!map_contains(result, entry->head)) {
-      result = cons_weak(entry->head, cons_weak(entry->tail->head, result));
-    }
-  }
-
-  return result;
-}
-
-static bool map_equals(List *_a, List *_b)
-{
-  bool rv = FALSE;
-  List *a = map_normalise(_a);
-  List *b = map_normalise(_b);
-
-  if (list_count(a) != list_count(b)) {
-    goto done;
-  }
-
-  for (List *entry = a; entry && entry->tail; entry = entry->tail->tail) {
-    if (!malval_equals(entry->tail->head, map_get(b, entry->head))) {
-      goto done;
-    }
-  }
-  rv = TRUE;
-
-done:
-  list_release(a);
-  list_release(b);
-  return rv;
 }
 
 bool malval_equals(MalVal *a, MalVal *b)
@@ -287,7 +241,6 @@ static uint16_t string_hash(unsigned p, const char *s)
 }
 
 #define vec_hash(vec) ((HASH_INIT_VECTOR * list_hash(vec)) % 65521)
-#define map_hash(map) ((HASH_INIT_MAP * list_hash(map)) % 65521)
 
 uint16_t malval_hash(MalVal *val)
 {

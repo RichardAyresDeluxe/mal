@@ -13,6 +13,7 @@
 #include "function.h"
 #include "str.h"
 #include "itoa.h"
+#include "map.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,36 @@ static void warn_symbol_not_found(const char *name)
   strcat(s, name);
   strcat(s, " not found");
   exception = malval_string(s);
+}
+
+struct map_eval_t {
+  ENV *env;
+  Map *out;
+  int i;
+};
+
+static void _evaluate_map(MalVal *key, MalVal *val, void *_data)
+{
+  struct map_eval_t *ev = _data;
+  if (exception) {
+    return;
+  }
+  val = EVAL(val, ev->env);
+  char buf[24] = "__val_";
+  env_set(ev->env, malval_symbol(itoa(ev->i++, &buf[6], 10)), val);
+
+  map_add(ev->out, EVAL(key, ev->env), val);
+}
+
+static Map *evaluate_map(Map *ast, ENV *env)
+{
+  Map *out = map_createN(map_count(ast));
+
+  struct map_eval_t ev = {env, out, 0};
+
+  map_foreach(ast, _evaluate_map, &ev);
+
+  return out;
 }
 
 MalVal *eval_ast(MalVal *ast, ENV *env)
@@ -115,35 +146,10 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
 
   if (ast->type == TYPE_MAP)
   {
-    List *evaluated = NULL;
-    unsigned i = 0;
-    char buf[24];
-    ENV *tmp = env_create(env, NULL, NULL);
-    env_set(tmp, malval_symbol("__map"), ast);
-    for (List *rover = VAL_MAP(ast); rover; rover = rover->tail) {
-      if ((i++ % 2) == 0) {
-        /* even - a key, don't evaluate */
-        evaluated = cons_weak(rover->head, evaluated);
-        env_set(tmp, malval_symbol(itoa(i, buf, 10)), rover->head);
-      }
-      else {
-        /* odd - a value, evaluate */
-        MalVal *val = EVAL(rover->head, env);
-        if (exception) {
-          env_release(tmp);
-          list_release(evaluated);
-          return ast;
-        }
-        env_set(tmp, malval_symbol(itoa(i, buf, 10)), val);
-        evaluated = cons_weak(val, evaluated);
-      }
-    }
-    env_release(tmp);
-    linked_list_reverse((void**)&evaluated);
+    Map *evaluated = evaluate_map(VAL_MAP(ast), env);
     MalVal *value = malval_map(evaluated);
-    list_release(evaluated);
+    map_release(evaluated);
     return value;
-
   }
 
   return ast;

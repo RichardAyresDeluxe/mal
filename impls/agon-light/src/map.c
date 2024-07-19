@@ -58,6 +58,26 @@ Map *map_acquire(Map *map)
   return map;
 }
 
+Map *map_duplicate(Map *in)
+{
+  Map *map = heap_malloc(sizeof(Map));
+  map->ref_count = 1;
+  map->table_size = in->table_size;
+  map->table = heap_calloc(map->table_size, sizeof(Entry*));
+
+  for (unsigned idx = 0; idx < map->table_size; idx++) {
+    for (Entry *entry = in->table[idx]; entry; entry = entry->next) {
+      Entry *new = heap_malloc(sizeof(Entry));
+      new->key = entry->key;
+      new->value = entry->value;
+      new->next = map->table[idx];
+      map->table[idx] = new;
+    }
+  }
+
+  return map;
+}
+
 static void destroy_table(Map *map)
 {
   for (unsigned idx = 0; idx < map->table_size; idx++) {
@@ -144,6 +164,26 @@ MalVal *map_find(Map *map, MalVal *key)
   return NULL;
 }
 
+void map_remove(Map *map, MalVal *key)
+{
+  unsigned idx = malval_hash(key) % map->table_size;
+
+  Entry *result = NULL;
+  Entry *rover = map->table[idx];
+  while (rover) {
+    Entry *next = rover->next;
+    if (malval_equals(rover->key, key)) {
+      heap_free(rover);
+    }
+    else {
+      rover->next = result;
+      result = rover;
+    }
+    rover = next;
+  }
+  map->table[idx] = result;
+}
+
 static void gc_mark_entry(MalVal *key, MalVal *val, void *data)
 {
   gc_mark(key, data);
@@ -189,4 +229,92 @@ static void rebuild(Map *map, unsigned for_size)
   heap_free(map->table);
   map->table_size = new_size;
   map->table = new_table;
+}
+
+static void _map_size(MalVal *key, MalVal *val, void *_size)
+{
+  unsigned *psize = _size;
+  *psize += malval_size(key, FALSE) + malval_size(val, FALSE) + sizeof(Entry);
+}
+
+unsigned map_size(Map *map, bool deep)
+{
+  unsigned sz = sizeof(Map) + sizeof(Entry*) * map->table_size;
+  map_foreach(map, _map_size, &sz);
+  return sz;
+}
+
+struct equals_t {
+  Map *that;
+  bool result;
+};
+
+static void _map_eq(MalVal *key, MalVal *val, void *_data)
+{
+  struct equals_t *eq = _data;
+  if (!eq->result)
+    return;
+
+  MalVal *found = map_find(eq->that, key);
+  eq->result = (found && malval_equals(val, found));
+}
+
+bool map_equals(Map *a, Map *b)
+{
+  if (map_count(a) != map_count(b))
+    return FALSE;
+
+  struct equals_t eq = {b, TRUE};
+  map_foreach(a, _map_eq, &eq);
+
+  return eq.result;
+}
+
+uint16_t map_hash(Map *map)
+{
+  unsigned hv = 73;
+
+  for (unsigned idx = 0; idx < map->table_size; idx++) {
+    for (Entry *entry = map->table[idx]; entry; entry = entry->next) {
+      hv = (hv * 31 + malval_hash(entry->key)) % 65521;
+      hv = (hv * 31 + malval_hash(entry->value)) % 65521;
+    }
+  }
+
+  return hv & 0xffff;
+}
+
+bool map_is_empty(Map *map)
+{
+  for (unsigned idx = 0; idx < map->table_size; idx++) {
+    if (map->table[idx] != NULL)
+      return FALSE;
+  }
+  return TRUE;
+}
+
+static void _map_keys(MalVal *key, MalVal *val, void *_data)
+{
+  List **keys = _data;
+  *keys = cons_weak(key, *keys);
+}
+
+List *map_keys(Map *map)
+{
+  List *keys = NULL;
+  map_foreach(map, _map_keys, &keys);
+  return keys;
+}
+
+static void _map_vals(MalVal *key, MalVal *val, void *_data)
+{
+  List **vals = _data;
+  *vals = cons_weak(val, *vals);
+}
+
+List *map_values(Map *map)
+{
+  List *vals = NULL;
+  map_foreach(map, _map_vals, &vals);
+  return vals;
 }

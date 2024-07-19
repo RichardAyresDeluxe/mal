@@ -5,6 +5,7 @@
 #include "listsort.h"
 #include "gc.h"
 #include "eval.h"
+#include "map.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -93,9 +94,10 @@ MalVal *function_create(List *body, ENV *env)
 
   MalVal *rv = malval_function(func);
   if (doc) {
-    List *doclist = cons_weak(malval_keyword(":doc"), cons_weak(doc, NULL));
-    rv->data.fn->meta = malval_map(doclist);
-    list_release(doclist);
+    Map *map = map_create();
+    map_add(map, malval_keyword(":doc"), doc);
+    rv->data.fn->meta = malval_map(map);
+    map_release(map);
   }
   return rv;
 }

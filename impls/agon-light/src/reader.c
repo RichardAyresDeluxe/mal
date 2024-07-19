@@ -10,6 +10,7 @@
 #include "gc.h"
 #include "str.h"
 #include "eval.h"
+#include "map.h"
 
 
 static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt);
@@ -194,8 +195,25 @@ MalVal *read_vector(lex_token_t *token, lex_token_t **next)
 
 MalVal *read_map(lex_token_t *token, lex_token_t **next)
 {
-  MalVal *val = read_list(token, next);
-  val->type = TYPE_MAP;
+  Map *map = map_create();
+
+  lex_token_t *rover = token;
+  while (rover && !TOKEN_IS_END(rover)) {
+    MalVal *key = read_form(rover, &rover);
+    if (TOKEN_IS_END(rover)) {
+      map_release(map);
+      malthrow("odd number of tokens in map");
+    }
+
+    MalVal *val = read_form(rover, &rover);
+
+    map_add(map, key, val);
+  }
+
+  *next = rover ? rover->next : NULL;
+
+  MalVal *val = malval_map(map);
+  map_release(map);
   return val;
 }
 

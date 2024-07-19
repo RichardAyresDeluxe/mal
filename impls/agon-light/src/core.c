@@ -1,5 +1,6 @@
 #include "malval.h"
 #include "list.h"
+#include "map.h"
 #include "env.h"
 #include "err.h"
 #include "listsort.h"
@@ -295,7 +296,7 @@ static MalVal *core_is_empty(List *args, ENV *env)
 
   if ((VAL_TYPE(args->head) == TYPE_LIST && list_is_empty(VAL_LIST(args->head)))
    || (VAL_TYPE(args->head) == TYPE_VECTOR && list_is_empty(VAL_VEC(args->head)))
-   || (VAL_TYPE(args->head) == TYPE_MAP && list_is_empty(VAL_MAP(args->head)))
+   || (VAL_TYPE(args->head) == TYPE_MAP && map_is_empty(VAL_MAP(args->head)))
   ) {
     return T;
   }
@@ -316,7 +317,7 @@ static MalVal *core_count(List *args, ENV *env)
     case TYPE_VECTOR:
       return malval_number(list_count(VAL_VEC(args->head)));
     case TYPE_MAP:
-      return malval_number(list_count(VAL_MAP(args->head)) / 2);
+      return malval_number(map_count(VAL_MAP(args->head)));
   }
 
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot count object");
@@ -757,11 +758,18 @@ static MalVal *core_is_sequential(List *args, ENV *env)
 
 static MalVal *core_hash_map(List *args, ENV *env)
 {
-  if ((list_count(args) % 2) != 0) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
-    return NIL;
+  unsigned count = list_count(args);
+
+  if ((count % 2) != 0)
+    malthrow("must be even number of arguments");
+
+  Map *map = map_createN(count / 2);
+  for (List *arg = args; arg && arg->tail; arg = arg->tail->tail) {
+    map_add(map, arg->head, arg->tail->head);
   }
-  return malval_map(list_acquire(args));
+  MalVal *rv = malval_map(map);
+  map_release(map);
+  return rv;
 }
 
 static MalVal *core_is_map(List *args, ENV *env)
@@ -774,21 +782,19 @@ static MalVal *core_is_map(List *args, ENV *env)
 
 static MalVal *assoc_map(List *args, ENV *env)
 {
-  MalVal *map = args->head;
-
   if ((list_count(args->tail) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "must be even number of arguments");
     return NIL;
   }
 
-  List *result = list_duplicate(VAL_MAP(map));
-  for (List *entry = args->tail; entry && entry; entry = entry->tail->tail) {
-    result = cons_weak(entry->head, cons_weak(entry->tail->head, result));
+  Map *map = map_duplicate(VAL_MAP(args->head));
+
+  for (List *entry = args->tail; entry && entry->tail; entry = entry->tail->tail) {
+    map_add(map, entry->head, entry->tail->head);
   }
-  List *normalised = map_normalise(result);
-  MalVal *val = malval_map(normalised);
-  list_release(result);
-  list_release(normalised);
+
+  MalVal *val = malval_map(map);
+  map_release(map);
   return val;
 }
 
@@ -862,18 +868,6 @@ static MalVal *core_assoc(List *args, ENV *env)
   return NIL;
 }
 
-static List *dissoc_key(List *map, MalVal *key)
-{
-  List *result = NULL;
-  for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
-    if (!malval_equals(entry->head, key)) {
-      result = cons_weak(entry->tail->head, cons_weak(entry->head, result));
-    }
-  }
-  linked_list_reverse((void**)&result);
-  return result;
-}
-
 static MalType types_dissoc[] = {TYPE_MAP, 0};
 static MalVal *core_dissoc(List *args, ENV *env)
 {
@@ -882,16 +876,14 @@ static MalVal *core_dissoc(List *args, ENV *env)
 
   MalVal *map = args->head;
   List *keys = args->tail;
-  List *result = list_duplicate(VAL_MAP(map));
+  Map *result = map_duplicate(VAL_MAP(map));
 
   for (List *key = keys; key; key = key->tail) {
-    List *l2 = dissoc_key(result, key->head);
-    list_release(result);
-    result = l2;
+    map_remove(result, key->head);
   }
 
   MalVal *rv = malval_map(result);
-  list_release(result);
+  map_release(result);
   return rv;
 }
 
@@ -906,13 +898,10 @@ static MalVal *core_get(List *args, ENV *env)
     return not_found;
 
   if (VAL_TYPE(args->head) == TYPE_MAP) {
-    List *map = VAL_MAP(args->head);
+    Map *map = VAL_MAP(args->head);
     MalVal *key = args->tail->head;
-    for (List *entry = map; entry && entry->tail; entry = entry->tail->tail) {
-      if (malval_equals(key, entry->head))
-        return entry->tail->head;
-    }
-    return not_found;
+    MalVal *found = map_find(map, key);
+    return found ? found : not_found;
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
@@ -962,14 +951,7 @@ static MalVal *core_keys(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, types_hashmap))
     return NIL;
 
-  List *normalised = map_normalise(VAL_MAP(args->head));
-  List *result = NULL;
-  for (List *entry = normalised; entry && entry->tail; entry = entry->tail->tail) {
-    result = cons_weak(entry->head, result);
-  }
-
-  list_release(normalised);
-  return malval_list_weak(result);
+  return malval_list_weak(map_keys(VAL_MAP(args->head)));
 }
 
 static MalVal *core_vals(List *args, ENV *env)
@@ -977,14 +959,7 @@ static MalVal *core_vals(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, types_hashmap))
     return NIL;
 
-  List *normalised = map_normalise(VAL_MAP(args->head));
-  List *result = NULL;
-  for (List *entry = normalised; entry && entry->tail; entry = entry->tail->tail) {
-    result = cons_weak(entry->tail->head, result);
-  }
-
-  list_release(normalised);
-  return malval_list_weak(result);
+  return malval_list_weak(map_values(VAL_MAP(args->head)));
 }
 
 static MalVal *core_readline(List *args, ENV *env)
@@ -1186,36 +1161,26 @@ static MalVal *core_debug_info(List *args, ENV *env)
     return NIL;
 
   unsigned count, size;
-  List *result = NULL, *values;
+  Map *result = map_createN(2), *values;
 
+  values = map_createN(2);
   value_info(&count, &size);
-  values = cons_weak(malval_keyword(":count"), 
-           cons_weak(malval_number(count),
-           cons_weak(malval_keyword(":size"),
-           cons_weak(malval_number(size),
-           NULL))));
-
-  result = cons_weak(malval_keyword(":values"),
-           cons_weak(malval_map(values),
-           result));
-  list_release(values);
+  map_add(values, malval_keyword(":count"), malval_number(count));
+  map_add(values, malval_keyword(":size"), malval_number(size));
+  map_add(result, malval_keyword(":values"), malval_map(values));
+  map_release(values);
 
 #ifndef NDEBUG
+  values = map_createN(2);
   heap_info(&count, &size);
-  values = cons_weak(malval_keyword(":count"), 
-           cons_weak(malval_number(count),
-           cons_weak(malval_keyword(":size"),
-           cons_weak(malval_number(size),
-           NULL))));
-
-  result = cons_weak(malval_keyword(":heap"),
-           cons_weak(malval_map(values),
-           result));
-  list_release(values);
+  map_add(values, malval_keyword(":count"), malval_number(count));
+  map_add(values, malval_keyword(":size"), malval_number(size));
+  map_add(result, malval_keyword(":heap"), malval_map(values));
+  map_release(values);
 #endif
 
   MalVal *rv = malval_map(result);
-  list_release(result);
+  map_release(result);
   return rv;
 }
 

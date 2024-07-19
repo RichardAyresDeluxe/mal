@@ -135,9 +135,37 @@ char *pr_str_vector(List *list, bool readable)
   return pr_str_container('[', ']', list, readable);
 }
 
-char *pr_str_map(List *map, bool readable)
+struct pr_map_t {
+  char *s;
+  bool readable;
+};
+
+static void _pr_map(MalVal *key, MalVal *val, void *_data)
 {
-  return pr_str_container('{', '}', map, readable);
+  struct pr_map_t *pr = _data;
+  char *k = pr_str(key, pr->readable);
+  char *v = pr_str(val, pr->readable);
+  catstr(&pr->s, k);
+  catstr(&pr->s, " ");
+  catstr(&pr->s, v);
+  catstr(&pr->s, " ");
+  heap_free(k);
+  heap_free(v);
+}
+
+char *pr_str_map(Map *map, bool readable)
+{
+  if (map_count(map) == 0)
+    return strdup("{}");
+
+  struct pr_map_t pr = { strdup("{"), readable };
+
+  map_foreach(map, _pr_map, &pr);
+  pr.s[strlen(pr.s)-1] = '\0';
+
+  catstr(&pr.s, "}");
+
+  return pr.s;
 }
 
 static char *catchar(char **sptr, char c)
