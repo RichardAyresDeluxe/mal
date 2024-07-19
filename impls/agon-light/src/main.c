@@ -788,7 +788,7 @@ static MalVal *builtin_load_file(List *args, ENV *env)
   if (!args || args->tail)
     malthrow("load-file requires one argument");
 
-  load_file(VAL_STRING(args->head), env);
+  load_file(VAL_STRING(args->head), repl_env);
 
   return NIL;
 }
