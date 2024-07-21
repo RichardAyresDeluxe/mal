@@ -6,6 +6,13 @@
 #include "map.h"
 #include "err.h"
 
+struct ENV {
+  struct ENV *prev, *next;
+  struct Map *map;
+  unsigned ref_count;
+  struct ENV *parent;
+};
+
 static void env_destroy(ENV *env);
 
 static ENV envs = {&envs, &envs, NULL, 0, NULL};

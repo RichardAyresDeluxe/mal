@@ -4,7 +4,6 @@
 #include "malval.h"
 #include "list.h"
 
-struct Map;
 typedef struct Map Map;
 
 Map *map_createN(unsigned init_size);
