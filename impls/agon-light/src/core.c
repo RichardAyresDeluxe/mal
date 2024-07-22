@@ -212,7 +212,7 @@ static MalVal *core_apply(List *args, ENV *env)
 
 static MalVal *core_list(List *args, ENV *env)
 {
-  return malval_list(list_acquire(args));
+  return malval_list(args);
 }
 
 static MalVal *core_cons(List *args, ENV *env)
@@ -540,13 +540,30 @@ static MalVal *core_map(List *args, ENV *env)
 
   List *result = NULL;
   Function *f = VAL_FUNCTION(args->head);
-  List *input = list_from_container(args->tail->head);
-  for (; input; input = input->tail) {
-    List a = {NULL, 1, input->head};
-    result = cons_weak(apply(f, &a), result);
+
+  ENV *tmp = env_create(env, NULL, NULL);
+  env_set(tmp, malval_symbol("__input"), malval_list(args));
+
+  if (VAL_TYPE(args->tail->head) == TYPE_LIST) {
+    List *input = VAL_LIST(args->tail->head);
+    for (; input; input = input->tail) {
+      result = cons_weak(apply1(f, input->head), result);
+    }
+    list_reverse(&result);
+  }
+  else if (VAL_TYPE(args->tail->head) == TYPE_VECTOR) {
+    Vec *vec = VAL_VEC(args->tail->head);
+    for (int i = vec_count(vec) - 1; i >= 0; i--) {
+      result = cons_weak(apply1(f, vec_get(vec, i)), result);
+    }
+  }
+  else {
+    env_release(tmp);
+    malthrow("Cannot map object");
   }
 
-  linked_list_reverse((void**)&result);
+  env_release(tmp);
+
   return malval_list_weak(result);
 }
 

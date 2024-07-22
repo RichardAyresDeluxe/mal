@@ -38,6 +38,8 @@ extern uint16_t function_hash(Function*);
 extern void function_gc_mark(Function*, void*);
 
 extern MalVal *apply(Function*, List*);
+extern MalVal *apply1(Function*, MalVal*);
+// extern MalVal *apply2(Function*, MalVal*, MalVal*);
 extern struct Body *function_find_body(Function *func, List *args);
 
 /**

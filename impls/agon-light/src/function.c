@@ -244,6 +244,12 @@ MalVal *apply(Function *func, List *args)
   return rv ? rv : NIL;
 }
 
+MalVal *apply1(Function *func, MalVal *arg)
+{
+  List args = {NULL, 1, arg};
+  return apply(func, &args);
+}
+
 void function_gc_mark(Function *fn, void *data)
 {
   if (fn->is_builtin)
