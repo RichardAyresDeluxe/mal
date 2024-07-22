@@ -75,8 +75,6 @@
   ([f g] (fn [& args] (f (apply g args))))
   ([f g & more] (apply comp (comp f g) more)))
 
-(defn not [a] (if a false true))
-
 (defn complement
   [f] (fn [& args] (not (apply f args))))
 
@@ -177,12 +175,6 @@
   ([a] a)
   ([a & more] `(if ~a (and ~@more))))
 
-(defmacro cond
-  ([] nil)
-  ([a] a)
-  ([test then & rest]
-   `(if ~test ~then (cond ~@rest))))
-
 (defmacro case
   ([_test-expr] nil)
   ([_test-expr default] default)
@@ -235,7 +227,7 @@
   [p xs]
   (cond
     (empty? xs) true
-    (p (first xs)) (recur p (rest xs))
+    (p (first xs)) (every? p (rest xs))
     :else false))
 
 (def not-every? (comp not every?))

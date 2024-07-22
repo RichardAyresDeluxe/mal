@@ -25,6 +25,11 @@
 
 extern void __fpurge(FILE*);
 
+struct options {
+  int verbosity;
+  bool ignore_init;
+} options = {1, FALSE };
+
 /* REPL */
 ENV *repl_env = NULL;
 
@@ -799,9 +804,40 @@ static void build_env(void)
   env_set(repl_env, malval_symbol("*host-language*"), malval_string("agon-light"));
 }
 
-void process_option(const char *option)
+void process_option(int *arg, char **option)
 {
-  printf("option %s\n", option);
+  char *opt = option[*arg];
+  if (strcmp(opt, "-N") == 0) {
+    options.ignore_init = TRUE;
+  }
+  else if (strcmp(opt, "-v") == 0) {
+    options.verbosity++;
+  }
+  else if (strcmp(opt, "-q") == 0) {
+    options.verbosity--;
+  }
+  else if (strcmp(opt, "-i") == 0) {
+    (*arg)++;
+    load_file(option[*arg], repl_env);
+  }
+}
+
+static char init[] = "\
+(def! not (fn* (a) (if a false true)))\f\
+(defmacro! cond\n\
+     (fn*  (& xs)\n\
+           (if (> (count xs) 0)\n\
+    (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))\n\
+";
+
+static void init_mal(void)
+{
+  char *s = strtok(init, "\f");
+  do {
+    char *out = rep(repl_env, s);
+    heap_free(out);
+    s = strtok(NULL, "\f");
+  } while(s);
 }
 
 int main(int argc, char **argv)
@@ -818,11 +854,7 @@ int main(int argc, char **argv)
 
   build_env();
 
-  load_file("init.mal", repl_env);
-  if (exception) {
-    print_exception();
-    exit(1);
-  }
+  init_mal();
 
   int arg = 1;
   while (arg < argc && argv[arg][0] == '-') {
@@ -831,7 +863,16 @@ int main(int argc, char **argv)
       arg++;
       break;
     }
-    process_option(argv[arg++]);
+    process_option(&arg, argv);
+    arg++;
+  }
+
+  if (!options.ignore_init) {
+    load_file("init.mal", repl_env);
+    if (exception) {
+      print_exception();
+      exit(1);
+    }
   }
 
   if (arg < argc) {
