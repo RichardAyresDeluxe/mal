@@ -15,6 +15,7 @@
 #include "str.h"
 #include "itoa.h"
 #include "map.h"
+#include "iter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -305,66 +306,44 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
 
   ENV *let = env_create(env, NULL, NULL);
 
-  List *bindings = NULL;
-  switch(VAL_TYPE(list->head)) {
-    case TYPE_VECTOR:
-      bindings = list_from_vec(VAL_VEC(list->head));
-      break;
-    case TYPE_LIST:
-      bindings = list_acquire(VAL_LIST(list->head));
-      break;
-    default:
-      exception = malval_string("bindings must a list or a vec");
-      env_release(let);
-      *out =  NIL;
-      return;
-  }
-
-  if ((list_count(bindings) % 2) != 0) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
-    env_release(let);
-    *out = NIL;
+  Iterator *iter = iter_create(list->head);
+  if (!iter)
     return;
-  }
 
   /* We will put all our un-evaluated bodies in here 
    * so that they do not get garbage collected during evaluation
    * of bindings */
-  ENV *tmp = env_create(env, NULL, NULL);
-  char s[12] = "__S_", v[12] = "__V_";
-  env_set(tmp, malval_symbol("bindings"), malval_list(bindings));
-  env_set(tmp, malval_symbol("list"), malval_list(list));
-  unsigned i = 0;
-  for (List *entry = bindings; entry && entry->tail; entry = entry->tail->tail) {
-    MalVal *sym = bindings->head;
-    MalVal *val = bindings->tail->head;
+  env_set(let, malval_symbol("__list"), malval_list(list));
+
+  MalVal *sym;
+  while ((sym = iter_next(iter)) != NULL) {
+    MalVal *val = iter_next(iter);
+    assert(val != NULL);
 
     if (VAL_TYPE(sym) != TYPE_SYMBOL) {
       err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
       env_release(let);
+      iter_destroy(iter);
       *out = NIL;
       return;
     }
 
-    itoa(i, &s[4], 10);
-    itoa(i, &v[4], 10);
-    env_set(tmp, malval_symbol(s), sym);
-    env_set(tmp, malval_symbol(v), val);
-    i++;
+    env_set(let, sym, val);
   }
 
-  for (List *entry = bindings; entry && entry->tail; entry = entry->tail->tail) {
-    MalVal *val = EVAL(entry->tail->head, let);
+  iter_reset(iter);
+  while ((sym = iter_next(iter)) != NULL) {
+    MalVal *val = EVAL(iter_next(iter), let);
     if (exception) {
       env_release(let);
       *out = NIL;
       return;
     }
-    env_set(let, entry->head, val);
+    env_set(let, sym, val);
   }
-  env_release(tmp);
-  list_release(bindings);
+  iter_destroy(iter);
 
+  assert(list->tail != NULL);
   *out = list->tail->head;
   env_release(*envout);
   *envout = let;

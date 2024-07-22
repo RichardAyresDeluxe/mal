@@ -238,7 +238,7 @@ static MalVal *core_cons(List *args, ENV *env)
       malthrow("unable to cons to object");
   }
 
-  return malval_list_weak(cons_weak(args->head, list));
+  return malval_list_weak(cons(args->head, list));
 }
 
 static MalVal *core_concat(List *args, ENV *env)

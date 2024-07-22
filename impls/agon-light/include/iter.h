@@ -8,6 +8,7 @@ typedef struct Iterator Iterator;
 extern Iterator *iter_create(MalVal *val);
 extern void iter_destroy(Iterator *iter);
 extern MalVal *iter_next(Iterator *iter);
+extern void iter_reset(Iterator *iter);
 extern void iter_foreach(Iterator *iter, MalValProc, void *);
 
 #endif /* _ITER_H */
