@@ -1,6 +1,8 @@
 #include "list.h"
 #include "heap.h"
 #include "listsort.h"
+#include "vec.h"
+#include "hash.h"
 
 #include <string.h>
 
@@ -99,7 +101,7 @@ List *list_from_container(MalVal *val)
     case TYPE_LIST:
       return list_acquire(VAL_LIST(val));
     case TYPE_VECTOR:
-      return list_duplicate(VAL_VEC(val));
+      return list_from_vec(VAL_VEC(val));
   }
   return NULL;
 }
@@ -158,12 +160,9 @@ MalVal *list_nth(List *list, unsigned idx)
 
 uint16_t list_hash(List *list)
 {
-  unsigned hv = 31;
-  while(list) {
-    hv = (hv * 31 + malval_hash(list->head));
-    list = list->tail;
-  }
-  return hv % 65521;
+  uint16_t hv = HASH_INIT_LIST;
+  list_foreach(list, hash_continue, &hv);
+  return hv;
 }
 
 struct double_list {

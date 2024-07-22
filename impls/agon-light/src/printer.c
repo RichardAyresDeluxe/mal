@@ -133,9 +133,12 @@ char *pr_str_list(List *list, bool readable)
   return pr_str_container('(', ')', list, readable);
 }
 
-char *pr_str_vector(List *list, bool readable)
+char *pr_str_vector(Vec *vec, bool readable)
 {
-  return pr_str_container('[', ']', list, readable);
+  List *l = list_from_vec(vec);
+  char *rv = pr_str_container('[', ']', l, readable);
+  list_release(l);
+  return rv;
 }
 
 struct pr_map_t {

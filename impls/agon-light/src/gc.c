@@ -3,6 +3,7 @@
  */
 #include <stddef.h>
 #include "gc.h"
+#include "vec.h"
 #include "env.h"
 #include "function.h"
 #include "eval.h"
@@ -41,7 +42,7 @@ void gc_mark(MalVal *val, void *data)
 
   switch (val->type) {
     case TYPE_VECTOR: 
-      list_foreach(VAL_VEC(val), gc_mark, data);
+      vec_foreach(VAL_VEC(val), gc_mark, data);
       gc_mark(val->data.vec->meta, data);
       break;
     case TYPE_LIST: 

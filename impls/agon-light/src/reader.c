@@ -5,10 +5,9 @@
 #include "err.h"
 #include "reader.h"
 #include "list.h"
-#include "heap.h"
 #include "listsort.h"
 #include "gc.h"
-#include "str.h"
+#include "vec.h"
 #include "eval.h"
 #include "map.h"
 
@@ -192,9 +191,16 @@ MalVal *read_list(lex_token_t *token, lex_token_t **next)
 
 MalVal *read_vector(lex_token_t *token, lex_token_t **next)
 {
-  MalVal *val = read_list(token, next);
-  val->type = TYPE_VECTOR;
-  return val;
+  Vec *vec = vec_create();
+  lex_token_t *rover = token;
+
+  while (rover && !TOKEN_IS_END(rover)) {
+    vec_append(vec, read_form(rover, &rover));
+  }
+
+  *next = rover ? rover->next : NULL;
+
+  return malval_vector(vec);
 }
 
 MalVal *read_set(lex_token_t *token, lex_token_t **next)

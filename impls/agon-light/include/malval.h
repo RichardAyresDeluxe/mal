@@ -38,6 +38,7 @@ typedef uint8_t MalType;
 
 struct List;
 struct Map;
+struct Vec;
 struct ENV;
 struct MalVal;
 struct Function;
@@ -48,7 +49,7 @@ struct ListWithMeta {
 };
 
 struct VecWithMeta {
-  struct List *vec;
+  struct Vec *vec;
   struct MalVal *meta;
 };
 
@@ -96,7 +97,7 @@ MalVal *malval_keyword(const char *);
 MalVal *malval_string(const char *);
 MalVal *malval_list(struct List*);
 MalVal *malval_list_weak(struct List*);
-MalVal *malval_vector(struct List*);
+MalVal *malval_vector(struct Vec*);
 MalVal *malval_map(struct Map*);
 MalVal *malval_set(struct Map*);
 MalVal *malval_function(struct Function*);

@@ -1,5 +1,6 @@
 #include "vec.h"
 #include "heap.h"
+#include "hash.h"
 
 #include <assert.h>
 #include <string.h>
@@ -11,7 +12,7 @@ typedef struct {
   MalVal *values[BLOCK_SIZE];
 } Block;
 
-struct vec {
+struct Vec {
   unsigned offset;
   unsigned count;
   unsigned num_blocks;
@@ -38,7 +39,7 @@ Vec *vec_create(void)
 
 Vec *vec_createN(unsigned size)
 {
-  unsigned num_blocks = 1 + size / BLOCK_SIZE;
+  unsigned num_blocks = 1 + (size-1) / BLOCK_SIZE;
   Vec *vec = heap_malloc(sizeof(Vec));
   vec->offset = 0;
   vec->count = 0;
@@ -89,28 +90,43 @@ static Block *block_duplicate(Block *block)
 void vec_append(Vec *vec, MalVal *val)
 {
   unsigned b, off;
-  get_block_and_offset(vec, vec->count + 1, &b, &off);
+  get_block_and_offset(vec, vec->count, &b, &off);
+
+  if (b >= vec->num_blocks) {
+    Block **new_blocks = heap_calloc(b + 1, sizeof(Block*));
+    memcpy(new_blocks, vec->blocks, vec->num_blocks * sizeof(Block*));
+    heap_free(vec->blocks);
+    vec->num_blocks = b + 1;
+    vec->blocks = new_blocks;
+  }
 
   if (vec->blocks[b] == NULL) {
     assert(off == 0);
-    vec->blocks[b] = heap_malloc(sizeof(Block));
+    vec->blocks[b] = heap_calloc(1, sizeof(Block));
     vec->blocks[b]->ref_count = 1;
     vec->blocks[b]->values[off] = val;
+    vec->count++;
     return;
   }
 
-  /* duplicate block */
-  vec->blocks[b] = block_duplicate(vec->blocks[b]);
+  if (vec->blocks[b]->ref_count > 1) {
+    /* duplicate block */
+    vec->blocks[b] = block_duplicate(vec->blocks[b]);
+  }
   vec->blocks[b]->values[off] = val;
+  vec->count++;
 }
 
 void vec_prepend(Vec *vec, MalVal *val)
 {
   if (vec->offset > 0) {
     /* there is space in the first block */
-    vec->blocks[0] = block_duplicate(vec->blocks[0]);
+    if (vec->blocks[0]->ref_count > 1) {
+      vec->blocks[0] = block_duplicate(vec->blocks[0]);
+    }
     vec->offset--;
     vec->blocks[0]->values[vec->offset] = val;
+    vec->count++;
     return;
   }
 
@@ -132,7 +148,20 @@ void vec_update(Vec *vec, int offset, MalVal *val)
 {
   unsigned b, off;
   get_block_and_offset(vec, offset, &b, &off);
+
+  if (vec->blocks[b]->ref_count > 1) 
+    vec->blocks[b] = block_duplicate(vec->blocks[b]);
+
   vec->blocks[b]->values[off] = val;
+}
+
+MalVal *vec_get(Vec *vec, int offset)
+{
+  unsigned b, off;
+  get_block_and_offset(vec, offset, &b, &off);
+
+  MalVal *v = vec->blocks[b]->values[off];
+  return v ? v : NIL;
 }
 
 void vec_foreach(Vec *vec, MalValProc p, void *data)
@@ -142,7 +171,9 @@ void vec_foreach(Vec *vec, MalValProc p, void *data)
 
   while (b < vec->num_blocks) {
     while (off < BLOCK_SIZE) {
-      p(vec->blocks[b]->values[off], data);
+      if (vec->blocks[b] && vec->blocks[b]->values[off]) {
+        p(vec->blocks[b]->values[off], data);
+      }
       off++;
     }
     off = 0;
@@ -158,11 +189,12 @@ Vec *vec_slice(Vec *vec, int offset, unsigned count)
 
   Vec *ret = vec_createN(count);
   while (n > 0 && b < vec->num_blocks) {
-    while (n < count && off < BLOCK_SIZE) {
+    while (n > 0 && off < BLOCK_SIZE) {
       vec_append(ret, vec->blocks[b]->values[off]);
-      n++;
+      n--;
       off++;
     }
+    off = 0;
     b++;
   }
 
@@ -200,4 +232,38 @@ Vec *vec_concat(Vec *this, Vec *that)
   vec_foreach(this, _append, ret);
   vec_foreach(that, _append, ret);
   return ret;
+}
+
+uint16_t vec_hash(Vec *vec)
+{
+  uint16_t hv = HASH_INIT_VEC;
+  vec_foreach(vec, hash_continue, &hv);
+  return hv;
+}
+
+bool vec_equals(Vec *a, Vec *b)
+{
+  int c = vec_count(a);
+
+  if (c != vec_count(b))
+    return FALSE;
+
+  for (int i = 0; i < c; i++) {
+    if (!malval_equals(vec_get(a, i), vec_get(b, i)))
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+List *list_from_vec(Vec *vec)
+{
+  List *result = NULL;
+  int i = vec_count(vec);
+
+  while (i --> 0) {
+    result = cons_weak(vec_get(vec, i), result);
+  }
+
+  return result;
 }

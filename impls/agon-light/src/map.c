@@ -1,6 +1,7 @@
 #include "map.h"
 #include "heap.h"
 #include "gc.h"
+#include "hash.h"
 
 #include <string.h>
 
@@ -272,16 +273,9 @@ bool map_equals(Map *a, Map *b)
 
 uint16_t map_hash(Map *map)
 {
-  unsigned hv = 73;
-
-  for (unsigned idx = 0; idx < map->table_size; idx++) {
-    for (Entry *entry = map->table[idx]; entry; entry = entry->next) {
-      hv = (hv * 31 + malval_hash(entry->key)) % 65521;
-      hv = (hv * 31 + malval_hash(entry->value)) % 65521;
-    }
-  }
-
-  return hv & 0xffff;
+  uint16_t hv = HASH_INIT_MAP;
+  map_foreach(map, hash_continue2, &hv);
+  return hv;
 }
 
 bool map_is_empty(Map *map)

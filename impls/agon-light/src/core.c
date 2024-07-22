@@ -1,6 +1,7 @@
 #include "malval.h"
 #include "list.h"
 #include "map.h"
+#include "vec.h"
 #include "env.h"
 #include "err.h"
 #include "listsort.h"
@@ -228,7 +229,7 @@ static MalVal *core_cons(List *args, ENV *env)
       list = VAL_LIST(args->tail->head);
       break;
     case TYPE_VECTOR:
-      list = VAL_VEC(args->tail->head);
+      list = list_from_container(args->tail->head);
       break;
     case TYPE_MAP:
       malthrow("cannot cons to maps yet");
@@ -236,7 +237,7 @@ static MalVal *core_cons(List *args, ENV *env)
       malthrow("unable to cons to object");
   }
 
-  return malval_list_weak(cons(args->head, list));
+  return malval_list_weak(cons_weak(args->head, list));
 }
 
 static MalVal *core_concat(List *args, ENV *env)
@@ -266,11 +267,15 @@ static MalVal *core_vec(List *args, ENV *env)
   if (VAL_TYPE(args->head) == TYPE_VECTOR)
     return args->head;
 
-  if (VAL_TYPE(args->head) == TYPE_LIST)
-    return malval_vector(VAL_LIST(args->head));
+  if (VAL_TYPE(args->head) == TYPE_LIST) {
+    Vec *v = vec_create();
+    for (List *rover = VAL_LIST(args->head); rover; rover = rover->tail) {
+      vec_append(v, rover->head);
+    }
+    return malval_vector(v);
+  }
 
-  err_warning(ERR_NOT_IMPLEMENTED, "cannot turn container into a vector");
-  return NIL;
+  malthrow("cannot turn container into a vector");
 }
 
 static MalVal *core_is_list(List *args, ENV *env)
@@ -295,7 +300,7 @@ static MalVal *core_is_empty(List *args, ENV *env)
   }
 
   if ((VAL_TYPE(args->head) == TYPE_LIST && list_is_empty(VAL_LIST(args->head)))
-   || (VAL_TYPE(args->head) == TYPE_VECTOR && list_is_empty(VAL_VEC(args->head)))
+   || (VAL_TYPE(args->head) == TYPE_VECTOR && vec_count(VAL_VEC(args->head)) == 0)
    || (VAL_TYPE(args->head) == TYPE_MAP && map_is_empty(VAL_MAP(args->head)))
   ) {
     return T;
@@ -315,7 +320,7 @@ static MalVal *core_count(List *args, ENV *env)
     case TYPE_LIST:
       return malval_number(list_count(VAL_LIST(args->head)));
     case TYPE_VECTOR:
-      return malval_number(list_count(VAL_VEC(args->head)));
+      return malval_number(vec_count(VAL_VEC(args->head)));
     case TYPE_MAP:
       return malval_number(map_count(VAL_MAP(args->head)));
     case TYPE_SET:
@@ -414,7 +419,7 @@ static MalVal *core_first(List *args, ENV *env)
     case TYPE_LIST:
       return list_is_empty(VAL_LIST(val)) ? NIL : VAL_LIST(val)->head;
     case TYPE_VECTOR:
-      return list_is_empty(VAL_VEC(val)) ? NIL : VAL_VEC(val)->head;
+      return (vec_count(VAL_VEC(val)) == 0) ? NIL : vec_get(VAL_VEC(val), 0);
   }
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot take first of non-container");
   return NIL;
@@ -432,9 +437,14 @@ static MalVal *core_last(List *args, ENV *env)
     case TYPE_LIST:
       list = VAL_LIST(val);
       break;
-    case TYPE_VECTOR:
-      list = VAL_VEC(val);
-      break;
+    case TYPE_VECTOR: {
+      Vec *v = VAL_VEC(val);
+      unsigned c = vec_count(v);
+      if (c == 0)
+        return NIL;
+      else
+        return vec_get(v, c - 1);
+    }
     default:
       exception = malval_string("cannot take last of non-container");
       return NIL;
@@ -459,9 +469,16 @@ static MalVal *core_butlast(List *args, ENV *env)
     case TYPE_LIST:
       list = VAL_LIST(val);
       break;
-    case TYPE_VECTOR:
-      list = VAL_VEC(val);
-      break;
+    case TYPE_VECTOR: {
+      Vec *v = VAL_VEC(val);
+      unsigned c = vec_count(v);
+      if (c <= 1)
+        return NIL;
+      Vec *rv = vec_slice(v, 0, c - 1);
+      list = list_from_vec(rv);
+      vec_destroy(rv);
+      return malval_list_weak(list);
+    }
     default:
       exception = malval_string("cannot take last of non-container");
       return NIL;
@@ -484,16 +501,22 @@ static MalVal *core_rest(List *args, ENV *env)
   if (!builtins_args_check(args, 1, ARGS_MAX, types_containers))
     return NIL;
 
-  MalVal *val = args->head;
-
-  switch(VAL_TYPE(val)) {
-    case TYPE_LIST:
-      return malval_list(list_is_empty(VAL_LIST(val)) ? NULL : VAL_LIST(val)->tail);
-    case TYPE_VECTOR:
-      return malval_list(list_is_empty(VAL_VEC(val)) ? NULL : VAL_VEC(val)->tail);
+  if (VAL_TYPE(args->head) == TYPE_LIST) {
+    List *l = VAL_LIST(args->head);
+    return malval_list(l ? l->tail : NULL);
   }
-  err_warning(ERR_ARGUMENT_MISMATCH, "cannot take rest of non-container");
-  return NIL;
+  else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
+    Vec *v = VAL_VEC(args->head);
+    if (vec_count(v) <= 1)
+      return malval_list(NULL);
+
+    v = vec_slice(v, 1, vec_count(v)-1);
+    MalVal *rv = malval_list_weak(list_from_vec(v));
+    vec_destroy(v);
+    return rv;
+  }
+
+  malthrow("cannot take rest of non-container");
 }
 
 static MalVal *core_reverse(List *args, ENV *env)
@@ -645,15 +668,17 @@ static MalVal *core_nth(List *args, ENV *env)
     rv = list_nth(VAL_LIST(args->head), count);
   }
   else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    rv = list_nth(VAL_VEC(args->head), count);
+    if (count >= vec_count(VAL_VEC(args->head)))
+      rv = NULL;
+    else
+      rv = vec_get(VAL_VEC(args->head), count);
   }
   else {
-    err_warning(ERR_NOT_IMPLEMENTED, "nth only on list and vector");
-    return NIL;
+    malthrow("nth only on list and vector");
   }
 
   if (rv == NULL)
-    exception = malval_string("bounds exception");
+    malthrow("index out of bounds");
 
   return rv;
 }
@@ -739,7 +764,10 @@ static MalVal *core_keyword(List *args, ENV *env)
 
 static MalVal *core_vector(List *args, ENV *env)
 {
-  return malval_vector(args);
+  Vec *v = vec_create();
+  for (List *arg = args; arg; arg = arg->tail)
+    vec_append(v, arg->head);
+  return malval_vector(v);
 }
 
 static MalVal *core_is_vector(List *args, ENV *env)
@@ -807,14 +835,12 @@ static MalVal *assoc_vec(List *args, ENV *env)
   if ((list_count(args->tail) % 2) != 0)
     malthrow("must be even number of arguments");
 
-  List *result = list_duplicate(VAL_VEC(vec));
-  list_reverse(&result);
-
-  unsigned c = list_count(result);
+  Vec *result = vec_duplicate(VAL_VEC(vec));
+  unsigned c = vec_count(result);
 
   for (List *entry = args->tail; entry; entry = entry->tail->tail) {
     if (VAL_TYPE(entry->head) != TYPE_NUMBER) {
-      list_release(result);
+      vec_destroy(result);
       malthrow("require number as index to vec");
     }
 
@@ -822,36 +848,19 @@ static MalVal *assoc_vec(List *args, ENV *env)
 
     if (index == c) {
       /* append */
-      result = cons_weak(entry->tail->head, result);
+      vec_append(result, entry->tail->head);
       c++;
     }
     else if (index >= 0 && index < c) {
-      /* replace */
-      List *tmp = NULL;
-      List *e = result;
-      list_reverse(&e);
-      for (; index-- > 0; e = e->tail) {
-        tmp = cons_weak(e->head, tmp);
-      }
-      tmp = cons_weak(entry->tail->head, tmp);
-      for (e = e->tail; e; e = e->tail) {
-        tmp = cons_weak(e->head, tmp);
-      }
-      list_release(result);
-      result = tmp;
+      vec_update(result, index, entry->tail->head);
     }
     else {
-      list_release(result);
+      vec_destroy(result);
       malthrow("Index out of bounds");
     }
 
   }
-
-  list_reverse(&result);
-
-  MalVal *val = malval_vector(result);
-  list_release(result);
-  return val;
+  return malval_vector(result);
 }
 
 static MalVal *core_assoc(List *args, ENV *env)
@@ -914,18 +923,18 @@ static MalVal *core_get(List *args, ENV *env)
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *vec = VAL_VEC(args->head);
+    Vec *vec = VAL_VEC(args->head);
     MalVal *index = args->tail->head;
     if (VAL_TYPE(index) != TYPE_NUMBER) {
       exception = malval_string("Invalid index");
       return NIL;
     }
-    MalVal *rv = list_nth(vec, index->data.number);
-    return rv ? rv : not_found;
+    if (VAL_NUMBER(index) >= vec_count(vec))
+      return not_found;
+    return vec_get(vec, VAL_NUMBER(index));
   }
 
-  exception = malval_string("get requires vec or map");
-  return NIL;
+  malthrow("get requires vec or map");
 }
 
 static MalVal *core_contains(List *args, ENV *env)
@@ -942,20 +951,16 @@ static MalVal *core_contains(List *args, ENV *env)
   }
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *vec = VAL_VEC(args->head);
+    Vec *vec = VAL_VEC(args->head);
     MalVal *index = args->tail->head;
     if (VAL_TYPE(index) != TYPE_NUMBER) {
       exception = malval_string("Invalid index");
       return NIL;
     }
-    int i = index->data.number;
-    while (vec && i-- > 0)
-      vec = vec->tail;
-    return i == -1 ? T : F;
+    return VAL_NUMBER(index) >= 0 && VAL_NUMBER(index) < vec_count(vec) ? T : F;
   }
 
-  exception = malval_string("contains? requires vec or map");
-  return NIL;
+  malthrow("contains? requires vec or map");
 }
 
 static MalType types_hashmap[] = {TYPE_MAP, 0};
@@ -1064,9 +1069,9 @@ static MalVal *core_seq(List *args, ENV *env)
         return NIL;
       return args->head;
     case TYPE_VECTOR:
-      if (list_is_empty(VAL_VEC(args->head)))
+      if (vec_count(VAL_VEC(args->head)) == 0)
         return NIL;
-      result = list_from_container(args->head);
+      result = list_from_vec(VAL_VEC(args->head));
       break;
     case TYPE_STRING:
       if (args->head->data.string[0] == '\0')
@@ -1090,10 +1095,10 @@ static MalVal *core_conj(List *args, ENV *env)
     return malval_list(args->tail);
 
   if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    List *result = list_concat(VAL_VEC(args->head), args->tail);
-    MalVal *rv = malval_vector(result);
-    list_release(result);
-    return rv;
+    Vec *result = vec_duplicate(VAL_VEC(args->head));
+    for (List *arg = args->tail; arg; arg = arg->tail)
+      vec_append(result, arg->head);
+    return malval_vector(result);
   }
 
   if (VAL_TYPE(args->head) == TYPE_LIST) {
@@ -1123,12 +1128,12 @@ static MalVal *core_conj(List *args, ENV *env)
         map_release(map);
         malthrow("conj on map requires vectors as arguments");
       }
-      List *l = VAL_VEC(arg->head);
-      if (list_count(l) != 2) {
+      Vec *l = VAL_VEC(arg->head);
+      if (vec_count(l) != 2) {
         map_release(map);
         malthrow("vectors must have 2 items");
       }
-      map_add(map, l->head, l->tail->head);
+      map_add(map, vec_get(l, 0), vec_get(l, 1));
     }
 
     MalVal *rv = malval_map(map);
@@ -1188,7 +1193,7 @@ static MalVal *core_with_meta(List *args, ENV *env)
     result->data.list->meta = metadata;
   }
   else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    result = malval_vector(VAL_VEC(args->head));
+    result = malval_vector(vec_duplicate(VAL_VEC(args->head)));
     result->data.vec->meta = metadata;
   }
   else if (VAL_TYPE(args->head) == TYPE_MAP) {
@@ -1201,7 +1206,7 @@ static MalVal *core_with_meta(List *args, ENV *env)
     result->data.fn->meta = metadata;
   }
   else {
-    exception = malval_string("Cannot set metadata on object");
+    malthrow("Cannot set metadata on object");
   }
 
   return result;

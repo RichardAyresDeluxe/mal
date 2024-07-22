@@ -1,5 +1,6 @@
 #include "malval.h"
 #include "list.h"
+#include "vec.h"
 #include "gc.h"
 #include "reader.h"
 #include "printer.h"
@@ -54,7 +55,8 @@ static void _evaluate_map(MalVal *key, MalVal *val, void *_data)
   }
   val = EVAL(val, ev->env);
   char buf[24] = "__val_";
-  env_set(ev->env, malval_symbol(itoa(ev->i++, &buf[6], 10)), val);
+  itoa(ev->i++, &buf[6], 10);
+  env_set(ev->env, malval_symbol(buf), val);
 
   map_add(ev->out, EVAL(key, ev->env), val);
 }
@@ -122,26 +124,22 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
 
   if (ast->type == TYPE_VECTOR)
   {
-    List *evaluated = NULL;
+    Vec *evaluated = vec_create();
     ENV *tmp = env_create(env, NULL, NULL);
-    int i = 0;
     char buf[24];
     env_set(tmp, malval_symbol("__vec"), ast);
-    for (List *rover = VAL_VEC(ast); rover; rover = rover->tail) {
-      MalVal *val = EVAL(rover->head, env);
+    for (int i = 0; i < vec_count(VAL_VEC(ast)); i++) {
+      MalVal *val = EVAL(vec_get(VAL_VEC(ast), i), env);
       if (exception) {
         env_release(tmp);
-        list_release(evaluated);
+        vec_destroy(evaluated);
         return ast;
       }
-      evaluated = cons_weak(val, evaluated);
-      env_set(tmp, malval_symbol(itoa(i++, buf, 10)), val);
+      vec_append(evaluated, val);
+      env_set(tmp, malval_symbol(itoa(i, buf, 10)), val);
     }
     env_release(tmp);
-    linked_list_reverse((void**)&evaluated);
-    MalVal *value = malval_vector(evaluated);
-    list_release(evaluated);
-    return value;
+    return malval_vector(evaluated);
   }
 
   if (ast->type == TYPE_MAP)
@@ -307,14 +305,21 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
 
   ENV *let = env_create(env, NULL, NULL);
 
-  if (list->head->type != TYPE_LIST && list->head->type != TYPE_VECTOR) {
-    err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings argument must be list or vector");
-    env_release(let);
-    *out = NIL;
-    return;
+  List *bindings = NULL;
+  switch(VAL_TYPE(list->head)) {
+    case TYPE_VECTOR:
+      bindings = list_from_vec(VAL_VEC(list->head));
+      break;
+    case TYPE_LIST:
+      bindings = list_acquire(VAL_LIST(list->head));
+      break;
+    default:
+      exception = malval_string("bindings must a list or a vec");
+      env_release(let);
+      *out =  NIL;
+      return;
   }
 
-  List *bindings = VAL_LIST(list->head);
   if ((list_count(bindings) % 2) != 0) {
     err_warning(ERR_ARGUMENT_MISMATCH, "let* bindings must have even number of entries");
     env_release(let);
@@ -326,38 +331,39 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
    * so that they do not get garbage collected during evaluation
    * of bindings */
   ENV *tmp = env_create(env, NULL, NULL);
-  char s[3] = "Sa", v[3] = "Va";
+  char s[12] = "__S_", v[12] = "__V_";
   env_set(tmp, malval_symbol("bindings"), malval_list(bindings));
   env_set(tmp, malval_symbol("list"), malval_list(list));
-  for (List *rover = bindings;
-       rover && rover->tail;
-       rover = rover->tail->tail)
-  {
-    if (rover->head->type != TYPE_SYMBOL) {
+  unsigned i = 0;
+  for (List *entry = bindings; entry && entry->tail; entry = entry->tail->tail) {
+    MalVal *sym = bindings->head;
+    MalVal *val = bindings->tail->head;
+
+    if (VAL_TYPE(sym) != TYPE_SYMBOL) {
       err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
       env_release(let);
       *out = NIL;
       return;
     }
-    env_set(tmp, malval_symbol(s), rover->head);
-    env_set(tmp, malval_symbol(v), rover->tail->head);
-    s[1]++;
-    v[1]++;
+
+    itoa(i, &s[4], 10);
+    itoa(i, &v[4], 10);
+    env_set(tmp, malval_symbol(s), sym);
+    env_set(tmp, malval_symbol(v), val);
+    i++;
   }
 
-  for (List *rover = bindings;
-       rover && rover->tail;
-       rover = rover->tail->tail)
-  {
-    MalVal *val = EVAL(rover->tail->head, let);
+  for (List *entry = bindings; entry && entry->tail; entry = entry->tail->tail) {
+    MalVal *val = EVAL(entry->tail->head, let);
     if (exception) {
       env_release(let);
       *out = NIL;
       return;
     }
-    env_set(let, rover->head, val);
+    env_set(let, entry->head, val);
   }
   env_release(tmp);
+  list_release(bindings);
 
   *out = list->tail->head;
   env_release(*envout);

@@ -1,11 +1,13 @@
 #include "function.h"
 #include "env.h"
+#include "vec.h"
 #include "heap.h"
 #include "err.h"
 #include "listsort.h"
 #include "gc.h"
 #include "eval.h"
 #include "map.h"
+#include "hash.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -109,10 +111,10 @@ static struct Body *create_body(List *list)
   List *lbinds;
 
   if (VAL_TYPE(binds) == TYPE_VECTOR) {
-    lbinds = VAL_VEC(binds);
+    lbinds = list_from_vec(VAL_VEC(binds));
   }
   else if (VAL_TYPE(binds) == TYPE_LIST) {
-    lbinds = VAL_LIST(binds);
+    lbinds = list_acquire(VAL_LIST(binds));
   }
   else {
     err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be a vector or list");
@@ -121,6 +123,7 @@ static struct Body *create_body(List *list)
 
   for (List *bind = lbinds; bind; bind = bind->tail) {
     if (VAL_TYPE(bind->head) != TYPE_SYMBOL) {
+      list_release(lbinds);
       err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be symbols");
       return NULL;
     }
@@ -128,13 +131,14 @@ static struct Body *create_body(List *list)
 
   unsigned nbinds = list_count(lbinds);
   if (nbinds > MAX_ARITY) {
+    list_release(lbinds);
     err_warning(ERR_ARGUMENT_MISMATCH, "function arity too high");
     return NULL;
   }
 
   struct Body *body = heap_malloc(sizeof(struct Body));
   body->next = NULL;
-  body->binds = list_acquire(lbinds);
+  body->binds = lbinds;
   body->arity = nbinds;
   body->body = list->tail->head;
 
@@ -253,7 +257,7 @@ void function_gc_mark(Function *fn, void *data)
 
 uint16_t function_hash(Function *f)
 {
-  unsigned hv = 97;
+  unsigned hv = HASH_INIT_FUNCTION;
 
   if (f->is_builtin)
     return (hv * (unsigned long)(f->fn.builtin)) % 65521;
