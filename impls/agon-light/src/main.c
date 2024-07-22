@@ -23,6 +23,8 @@
 #include <string.h>
 #include <alloca.h>
 
+extern void __fpurge(FILE*);
+
 /* REPL */
 ENV *repl_env = NULL;
 
@@ -709,16 +711,21 @@ char *PRINT(MalVal *val)
   return pr_str(val, TRUE);
 }
 
+static void print_exception(void)
+{
+  fputs("Exception: ", stdout);
+  char *x = pr_str(exception, TRUE);
+  fputs(x, stdout);
+  fputs("\n", stdout);
+  heap_free(x);
+  exception = NULL;
+}
+
 char *rep(ENV *repl_env, char *s)
 {
   MalVal *val = EVAL(READ(s), repl_env);
   if (exception) {
-    fputs("Exception: ", stdout);
-    char *x = pr_str(exception, TRUE);
-    fputs(x, stdout);
-    fputs("\n", stdout);
-    heap_free(x);
-    exception = NULL;
+    print_exception();
     return PRINT(NULL);
   }
   return PRINT(val);
@@ -744,6 +751,7 @@ static void cleanup(void)
 
 
 #ifndef NDEBUG
+  __fpurge(stdout);
   unsigned count, size;
   value_info(&count, &size);
   fprintf(stderr, "Values remaining: %u (%u bytes)\n", count, size);
@@ -791,7 +799,10 @@ static void build_env(void)
   env_set(repl_env, malval_symbol("*host-language*"), malval_string("agon-light"));
 }
 
-extern void __fpurge(FILE*);
+void process_option(const char *option)
+{
+  printf("option %s\n", option);
+}
 
 int main(int argc, char **argv)
 {
@@ -808,30 +819,35 @@ int main(int argc, char **argv)
   build_env();
 
   load_file("init.mal", repl_env);
+  if (exception) {
+    print_exception();
+    exit(1);
+  }
 
   int arg = 1;
-
-  while (arg < argc) {
-    if (argv[arg][0] == '\0') {
+  while (arg < argc && argv[arg][0] == '-') {
+    if (strcmp(argv[arg], "--") == 0) {
+      /* no more options */
       arg++;
-      continue;
+      break;
     }
+    process_option(argv[arg++]);
+  }
+
+  if (arg < argc) {
+    char *input_file = argv[arg++];
 
     List *args = NULL;
-
-    char *input = strdup("(load-file \"");
-    catstr(&input, argv[arg++]);
-    catstr(&input, "\")");
-
-    for (; arg < argc; arg++)
+    for (int arg = 2; arg < argc; arg++)
       args = cons_weak(malval_string(argv[arg]), args);
 
-    linked_list_reverse((void**)&args);
+    list_reverse(&args);
     env_set(repl_env, malval_symbol("*ARGV*"), malval_list_weak(args));
 
-    char *s = rep(repl_env, input);
-    heap_free(input);
-    heap_free(s);
+    load_file(input_file, repl_env);
+    if (exception) {
+      print_exception();
+    }
     exit(0);
   }
 
