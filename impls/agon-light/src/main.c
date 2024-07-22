@@ -45,7 +45,6 @@ static void warn_symbol_not_found(const char *name)
 struct map_eval_t {
   ENV *env;
   Map *out;
-  int i;
 };
 
 static void _evaluate_map(MalVal *key, MalVal *val, void *_data)
@@ -54,19 +53,20 @@ static void _evaluate_map(MalVal *key, MalVal *val, void *_data)
   if (exception) {
     return;
   }
-  val = EVAL(val, ev->env);
-  char buf[24] = "__val_";
-  itoa(ev->i++, &buf[6], 10);
-  env_set(ev->env, malval_symbol(buf), val);
 
-  map_add(ev->out, EVAL(key, ev->env), val);
+  val = EVAL(val, ev->env);
+  push_temp(val);
+  key = EVAL(key, ev->env);
+  pop_temp();
+
+  map_add(ev->out, key, val);
 }
 
 static Map *evaluate_map(Map *ast, ENV *env)
 {
   Map *out = map_createN(map_count(ast));
 
-  struct map_eval_t ev = {env, out, 0};
+  struct map_eval_t ev = {env, out};
 
   map_foreach(ast, _evaluate_map, &ev);
 
@@ -104,21 +104,20 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   if (ast->type == TYPE_LIST)
   {
     List *evaluated = NULL;
-    int i = 0;
-    ENV *tmp = env_create(env, NULL, NULL);
-    env_set(tmp, malval_symbol("__list"), ast);
-    char buf[24];
+    push_temp(ast);
+    int tmps = 0;
     for (List *rover = VAL_LIST(ast); rover; rover = rover->tail) {
       MalVal *val = EVAL(rover->head, env);
       if (exception) {
-        env_release(tmp);
+        pop_temps(tmps + 1);
         list_release(evaluated);
         return ast;
       }
       evaluated = cons_weak(val, evaluated);
-      env_set(tmp, malval_symbol(itoa(i++, buf, 10)), val);
+      push_temp(val);
+      tmps++;
     }
-    env_release(tmp);
+    pop_temps(tmps + 1);
     linked_list_reverse((void**)&evaluated);
     return malval_list_weak(evaluated);
   }
@@ -126,20 +125,18 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   if (ast->type == TYPE_VECTOR)
   {
     Vec *evaluated = vec_create();
-    ENV *tmp = env_create(env, NULL, NULL);
-    char buf[24];
-    env_set(tmp, malval_symbol("__vec"), ast);
+    push_temp(ast);
     for (int i = 0; i < vec_count(VAL_VEC(ast)); i++) {
       MalVal *val = EVAL(vec_get(VAL_VEC(ast), i), env);
       if (exception) {
-        env_release(tmp);
+        pop_temps(i);
         vec_destroy(evaluated);
         return ast;
       }
       vec_append(evaluated, val);
-      env_set(tmp, malval_symbol(itoa(i, buf, 10)), val);
+      push_temp(val);
     }
-    env_release(tmp);
+    pop_temps(vec_count(VAL_VEC(ast)) + 1);
     return malval_vector(evaluated);
   }
 
@@ -164,11 +161,10 @@ static MalVal *EVAL_def(List *list, ENV *env)
   char *name = alloca(strlen(VAL_STRING(list->head)) + 1);
   strcpy(name, VAL_STRING(list->head));
 
-  ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, malval_symbol("__body"), malval_list(list));
+  push_temp(malval_list(list));
 
   MalVal *value = EVAL(list->tail->head, env);
-  env_release(tmp);
+  pop_temp();
   if (exception) {
     return NIL;
   }
@@ -192,11 +188,10 @@ static MalVal *EVAL_defmacro(List *list, ENV *env)
   char *name = alloca(strlen(VAL_STRING(list->head)) + 1);
   strcpy(name, VAL_STRING(list->head));
 
-  ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, malval_symbol("__body"), malval_list(list));
+  push_temp(malval_list(list));
 
   MalVal *value = EVAL(list->tail->head, env);
-  env_release(tmp);
+  pop_temp();
   if (exception) {
     return NIL;
   }
@@ -254,18 +249,17 @@ static MalVal *EVAL_fn_star(List *list, ENV *env)
 
 static void EVAL_do(List *list, ENV *env, MalVal **out)
 {
-  ENV *tmp = env_create(env, NULL, NULL);
   List *rover = list;
+  push_temp(malval_list(list));
   while (rover && rover->tail) {
-    env_set(tmp, malval_symbol("__body"), rover->head);
     EVAL(rover->head, env);
     if (exception) {
-      env_release(tmp);
+      pop_temp();
       return;
     }
     rover = rover->tail;
   }
-  env_release(tmp);
+  pop_temp();
 
   *out = rover ? rover->head : NIL;
 }
@@ -278,11 +272,10 @@ static void EVAL_if(List *list, ENV *env, MalVal **out)
     return;
   }
 
-  ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, malval_symbol("__body"), malval_list(list));
+  push_temp(malval_list(list));
 
   MalVal *val = EVAL(list->head, env);
-  env_release(tmp);
+  pop_temp();
   if (exception) {
     return;
   }
@@ -374,8 +367,7 @@ static MalVal *EVAL_quasiquote_list(List *elt, ENV *env)
 {
   List *result = NULL;
 
-  ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, malval_symbol("__elt"), malval_list(elt));
+  push_temp(malval_list(elt));
 
   for (; elt; elt = elt->tail) {
     if (VAL_TYPE(elt->head) == TYPE_LIST
@@ -398,7 +390,7 @@ static MalVal *EVAL_quasiquote_list(List *elt, ENV *env)
                                    cons_weak(malval_list_weak(result), NULL)));
     }
   }
-  env_release(tmp);
+  pop_temp();
 
   return malval_list_weak(result);
 }
@@ -419,10 +411,9 @@ static MalVal *EVAL_quasiquote(MalVal *ast, ENV *env)
     List *list = list_duplicate(VAL_LIST(ast));
     linked_list_reverse((void**)&list);
 
-    ENV *tmp = env_create(env, NULL, NULL);
-    env_set(tmp, malval_symbol("__list"), malval_list(list));
+    push_temp(malval_list(list));
     MalVal *rv = EVAL_quasiquote_list(list, env);
-    env_release(tmp);
+    pop_temp();
 
     if (exception) {
       list_release(list);
@@ -436,10 +427,9 @@ static MalVal *EVAL_quasiquote(MalVal *ast, ENV *env)
     List *list = list_from_container(ast);
     linked_list_reverse((void**)&list);
 
-    ENV *tmp = env_create(env, NULL, NULL);
-    env_set(tmp, malval_symbol("__list"), malval_list(list));
+    push_temp(malval_list(list));
     MalVal *val = EVAL_quasiquote_list(list, env);
-    env_release(tmp);
+    pop_temp();
 
     if (exception) {
       list_release(list);
@@ -863,6 +853,9 @@ int main(int argc, char **argv)
     s = rep(repl_env, "(debug-info)");
     puts(s);
     heap_free(s);
+    char buf[12];
+    fputs(itoa(temps_count(), buf, 10), stdout);
+    puts(" temps left");
 #endif
   }
 }

@@ -15,7 +15,7 @@ else
 	ifeq ($(DEBUG), 1)
 		CFLAGS+=-O0 -g -D_DEBUG
 	else
-		CFLAGS+=-Os -DNDEBUG
+		CFLAGS+=-O2 -DNDEBUG
 	endif
 endif
 

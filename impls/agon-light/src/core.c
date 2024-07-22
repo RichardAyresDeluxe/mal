@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <alloca.h>
+#include <assert.h>
 
 #ifndef AGON_LIGHT
 #include <sys/time.h>
@@ -545,8 +546,7 @@ static MalVal *core_map(List *args, ENV *env)
   List *result = NULL;
   Function *f = VAL_FUNCTION(args->head);
 
-  ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, malval_symbol("__input"), malval_list(args));
+  push_temp(malval_list(args));
 
   Iterator *iter = iter_create(args->tail->head);
   MalVal *val;
@@ -556,7 +556,7 @@ static MalVal *core_map(List *args, ENV *env)
   iter_destroy(iter);
   list_reverse(&result);
 
-  env_release(tmp);
+  pop_temp();
 
   return malval_list_weak(result);
 }
@@ -653,15 +653,15 @@ static MalVal *core_swap(List *args, ENV *env)
   MalVal *func = args->tail->head;
   List *fargs = cons(atom->data.atom, args->tail->tail);
 
-  ENV *tmp = env_create(env, NULL, NULL);
-  env_set(tmp, malval_symbol("atom"), atom);
-  env_set(tmp, malval_symbol("func"), func);
-  env_set(tmp, malval_symbol("fargs"), malval_list(fargs));
-  env_set(tmp, malval_symbol("args"), malval_list(args));
+  push_temp(atom);
+  push_temp(func);
+  push_temp(malval_list(fargs));
+  push_temp(malval_list(args));
 
   atom->data.atom = apply(VAL_FUNCTION(func), fargs);
   list_release(fargs);
-  env_release(tmp);
+
+  pop_temps(4);
 
   return atom->data.atom;
 }

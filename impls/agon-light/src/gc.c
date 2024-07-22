@@ -10,8 +10,11 @@
 #include "env.h"
 #include "map.h"
 
+#include <assert.h>
+
 extern ENV *repl_env;
 
+static List *temps = NULL;
 static MalVal *all_values = NULL;
 static unsigned values_count = 0;
 static unsigned values_max = 64;
@@ -69,6 +72,7 @@ void gc(bool force)
     return;
 
   env_mark_all();
+  gc_mark_list(temps, NULL);
   gc_mark(exception, NULL);
   sweep();
 
@@ -107,4 +111,29 @@ void value_info(unsigned *count, unsigned *size)
 void gc_mark_list(List *list, void *data)
 {
   list_foreach(list, gc_mark, data);
+}
+
+void push_temp(MalVal *val)
+{
+  temps = cons(val, temps);
+}
+
+void pop_temp(void)
+{
+  assert(temps != NULL);
+  List *tmp = temps;
+  temps = temps->tail;
+  list_release(tmp);
+}
+
+void pop_temps(int n)
+{
+  while(n --> 0)
+    pop_temp();
+}
+
+
+unsigned temps_count(void)
+{
+  return list_count(temps);
 }

@@ -4,6 +4,14 @@
 #include "malval.h"
 #include "list.h"
 
+/** This is a stack of temporary values that do not exist in
+ * an environment and so can't be found, but should not be 
+ * garbage collected yet */
+extern void push_temp(MalVal*);
+extern void pop_temp(void);
+extern void pop_temps(int);
+extern unsigned temps_count(void);
+
 /** Take out the trash */
 extern void gc(bool force);
 extern void gc_add(MalVal *);
