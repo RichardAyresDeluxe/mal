@@ -14,6 +14,7 @@
 #include "gc.h"
 #include "reader.h"
 #include "eval.h"
+#include "iter.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -525,9 +526,12 @@ static MalVal *core_reverse(List *args, ENV *env)
     return NIL;
 
   List *result = NULL;
-  for (List *input = list_from_container(args->head); input; input = input->tail) {
-    result = cons_weak(input->head, result);
+  Iterator *iter = iter_create(args->head);
+  MalVal *val;
+  while ((val = iter_next(iter)) != NULL) {
+    result = cons_weak(val, result);
   }
+  iter_destroy(iter);
 
   return malval_list_weak(result);
 }
@@ -544,23 +548,13 @@ static MalVal *core_map(List *args, ENV *env)
   ENV *tmp = env_create(env, NULL, NULL);
   env_set(tmp, malval_symbol("__input"), malval_list(args));
 
-  if (VAL_TYPE(args->tail->head) == TYPE_LIST) {
-    List *input = VAL_LIST(args->tail->head);
-    for (; input; input = input->tail) {
-      result = cons_weak(apply1(f, input->head), result);
-    }
-    list_reverse(&result);
+  Iterator *iter = iter_create(args->tail->head);
+  MalVal *val;
+  while ((val = iter_next(iter)) != NULL) {
+    result = cons_weak(apply1(f, val), result);
   }
-  else if (VAL_TYPE(args->tail->head) == TYPE_VECTOR) {
-    Vec *vec = VAL_VEC(args->tail->head);
-    for (int i = vec_count(vec) - 1; i >= 0; i--) {
-      result = cons_weak(apply1(f, vec_get(vec, i)), result);
-    }
-  }
-  else {
-    env_release(tmp);
-    malthrow("Cannot map object");
-  }
+  iter_destroy(iter);
+  list_reverse(&result);
 
   env_release(tmp);
 
