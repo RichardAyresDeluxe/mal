@@ -800,8 +800,6 @@ static void build_env(void)
   env_set(repl_env, malval_symbol("false"), _false);
   env_set(repl_env, malval_symbol("eval"), function_create_builtin(builtin_eval));
   env_set(repl_env, malval_symbol("load-file"), function_create_builtin(builtin_load_file));
-  env_set(repl_env, malval_symbol("*ARGV*"), malval_list(NULL));
-  env_set(repl_env, malval_symbol("*host-language*"), malval_string("agon-light"));
 }
 
 void process_option(int *arg, char **option)
@@ -823,6 +821,8 @@ void process_option(int *arg, char **option)
 }
 
 static char init[] = "\
+(def! *ARGV* '())\f\
+(def! *host-language* \"agon-light\")\f\
 (def! not (fn* (a) (if a false true)))\f\
 (defmacro! cond\n\
      (fn*  (& xs)\n\
