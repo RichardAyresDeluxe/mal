@@ -144,7 +144,7 @@ MalVal *malval_number(int number)
   return val;
 }
 
-MalVal *malval_float(float_t f)
+MalVal *malval_float(malfloat f)
 {
   MalVal *val = malval_create(TYPE_FLOAT);
   val->data.flt = f;

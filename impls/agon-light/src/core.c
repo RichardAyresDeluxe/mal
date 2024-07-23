@@ -21,6 +21,7 @@
 #include <string.h>
 #include <alloca.h>
 #include <assert.h>
+#include <math.h>
 
 #ifdef AGON_LIGHT
 #include <mos_api.h>
@@ -96,15 +97,15 @@ bool builtins_args_check(
   return TRUE;
 }
 
-static float_t number_to_float(MalVal *n)
+static malfloat number_to_float(MalVal *n)
 {
   switch(VAL_TYPE(n)) {
   case TYPE_FLOAT:
     return VAL_FLOAT(n);
   case TYPE_NUMBER:
-    return (float_t)VAL_NUMBER(n);
+    return (malfloat)VAL_NUMBER(n);
   case TYPE_BYTE:
-    return (float_t)VAL_BYTE(n);
+    return (malfloat)VAL_BYTE(n);
   }
   err_fatal(ERR_ARGUMENT_MISMATCH, "invalid number");
   return 0;
@@ -127,7 +128,7 @@ static int number_to_int(MalVal *n)
 static MalVal *_plus(MalVal *a, MalVal *b)
 {
   if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
-    float_t result = number_to_float(a) + number_to_float(b);
+    malfloat result = number_to_float(a) + number_to_float(b);
     a->type = TYPE_FLOAT;
     VAL_FLOAT(a) = result;
     return a;
@@ -142,7 +143,7 @@ static MalVal *_plus(MalVal *a, MalVal *b)
 static MalVal *_minus(MalVal *a, MalVal *b)
 {
   if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
-    float_t result = number_to_float(a) - number_to_float(b);
+    malfloat result = number_to_float(a) - number_to_float(b);
     a->type = TYPE_FLOAT;
     VAL_FLOAT(a) = result;
     return a;
@@ -157,7 +158,7 @@ static MalVal *_minus(MalVal *a, MalVal *b)
 static MalVal *_multiply(MalVal *a, MalVal *b)
 {
   if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
-    float_t result = number_to_float(a) * number_to_float(b);
+    malfloat result = number_to_float(a) * number_to_float(b);
     a->type = TYPE_FLOAT;
     VAL_FLOAT(a) = result;
     return a;
@@ -172,11 +173,11 @@ static MalVal *_multiply(MalVal *a, MalVal *b)
 static MalVal *_divide(MalVal *a, MalVal *b)
 {
   if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
-    float_t bn = number_to_float(b);
+    malfloat bn = number_to_float(b);
     if (bn == 0.0)
       malthrow("divide by zero");
 
-    float_t result = number_to_float(a) / bn;
+    malfloat result = number_to_float(a) / bn;
     a->type = TYPE_FLOAT;
     VAL_FLOAT(a) = result;
     return a;
@@ -249,6 +250,32 @@ static MalVal *divide(List *args, ENV *env)
     result = _divide(result, rover->head);
   }
   return result;
+}
+
+#ifdef AGON_LIGHT
+#define _pow powf
+#define _sqrt sqrtf
+#else
+#define _pow pow
+#define _sqrt sqrt
+#endif
+
+static MalType types_numeric[] = {METATYPE_NUMERIC, METATYPE_NUMERIC, METATYPE_NUMERIC, 0};
+
+static MalVal *core_pow(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 2, 2, types_numeric))
+    return NIL;
+
+  return malval_float(_pow(number_to_float(args->head), number_to_float(args->tail->head)));
+}
+
+static MalVal *core_sqrt(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_numeric))
+    return NIL;
+
+  return malval_float(_sqrt(number_to_float(args->head)));
 }
 
 static MalVal *lessthan(List *args, ENV *env)
@@ -1440,10 +1467,6 @@ static MalVal *core_debug_info(List *args, ENV *env)
   map_release(values);
 #endif
 
-#ifdef AGON_LIGHT
-  printf("_alloc_base[0]=%p\n", _alloc_base[0]);
-  printf("_alloc_base[1]=%p\n", _alloc_base[0]);
-#endif
 
   MalVal *rv = malval_map(result);
   map_release(result);
@@ -1527,6 +1550,9 @@ struct ns core_ns[] = {
   {"hash", core_hash},
 
   {"debug-info", core_debug_info},
+
+  {"pow", core_pow},
+  {"sqrt", core_sqrt},
 
   {NULL, NULL},
 };

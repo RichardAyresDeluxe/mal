@@ -760,13 +760,13 @@ static void cleanup(void)
 #ifndef NDEBUG
 #ifndef AGON_LIGHT
   __fpurge(stdout);
-#endif
   unsigned count, size;
   value_info(&count, &size);
   fprintf(stderr, "Values remaining: %u (%u bytes)\n", count, size);
 
   heap_info(&count, &size);
   fprintf(stderr, "Heap remainig: %u items (%u bytes)\n", count, size);
+#endif
 #endif
 }
 

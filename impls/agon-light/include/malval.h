@@ -71,9 +71,9 @@ struct FunctionWithMeta {
 };
 
 #ifdef AGON_LIGHT
-typedef float float_t;
+typedef float malfloat;
 #else
-typedef double float_t;
+typedef double malfloat;
 #endif
 
 typedef struct MalVal {
@@ -85,7 +85,7 @@ typedef struct MalVal {
     uint8_t byte;
     int number;
     bool bool;
-    float_t flt;
+    malfloat flt;
     struct MalVal *atom;
     char *string;
     void *data;
@@ -115,7 +115,7 @@ MalVal *malval_set(struct Map*);
 MalVal *malval_function(struct Function*);
 MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
-MalVal *malval_float(float_t);
+MalVal *malval_float(malfloat);
 MalVal *malval_byte(uint8_t);
 /** Only for numbers */
 MalVal *malval_dup(MalVal*);
