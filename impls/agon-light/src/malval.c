@@ -53,11 +53,16 @@ MalVal *malval_keyword(const char *s)
   return malval_symbol(buf);
 }
 
-MalVal *malval_string(const char *s)
+MalVal *malval_string_own(char *s)
 {
   MalVal *val = malval_create(TYPE_STRING);
-  val->data.string = strdup(s);
+  val->data.string = s;
   return val;
+}
+
+MalVal *malval_string(const char *s)
+{
+  return malval_string_own(strdup(s));
 }
 
 MalVal *malval_list_weak(List *list)
@@ -189,7 +194,7 @@ unsigned malval_size(MalVal *val, bool deep)
       sz += map_size(VAL_MAP(val), deep);
       break;
     case TYPE_VECTOR:
-      for (int i = 0; i < vec_count(VAL_VEC(val)); i++) {
+      for (int i = 0; (unsigned)i < vec_count(VAL_VEC(val)); i++) {
         sz += malval_size(vec_get(VAL_VEC(val), i), deep);
       }
       break;

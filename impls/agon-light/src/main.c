@@ -133,7 +133,7 @@ MalVal *eval_ast(MalVal *ast, ENV *env)
   {
     Vec *evaluated = vec_create();
     push_temp(ast);
-    for (int i = 0; i < vec_count(VAL_VEC(ast)); i++) {
+    for (int i = 0; (unsigned)i < vec_count(VAL_VEC(ast)); i++) {
       MalVal *val = EVAL(vec_get(VAL_VEC(ast), i), env);
       if (exception) {
         pop_temps(i);
@@ -840,6 +840,10 @@ static void init_mal(void)
   } while(s);
 }
 
+#ifndef AGON_LIGHT
+extern void __fpurge(FILE*);
+#endif
+
 int main(int argc, char **argv)
 {
   _nil = malval_nil();
@@ -851,6 +855,15 @@ int main(int argc, char **argv)
 
   /* Largely to keep valgrind happy */
   atexit(cleanup);
+
+#ifndef NDEBUG
+  heap_init();
+  char buf[12];
+  itoa(heap_size/1024, buf, 10);
+  fputs("Heap: ", stdout);
+  fputs(itoa(heap_size/1024, buf, 10), stdout);
+  fputs("kB\n", stdout);
+#endif
 
   build_env();
 
@@ -899,7 +912,9 @@ int main(int argc, char **argv)
     if (!s) {
       exit(0);
     }
+#ifndef AGON_LIGHT
     __fpurge(stdout);
+#endif
     fputs(s, stdout);
     fflush(stdout);
     fputs("\n", stdout);

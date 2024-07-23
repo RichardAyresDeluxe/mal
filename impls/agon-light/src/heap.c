@@ -2,6 +2,7 @@
 #include "heap.h"
 #include "err.h"
 #include "list.h"
+#include "itoa.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,14 +29,20 @@ typedef struct block {
 
 static block_t heap = {&heap, &heap, 0};
 
-static void out_of_memory(void)
+static void out_of_memory(unsigned requested)
 {
+  char buf[12];
   unsigned total_heap = 0;
 
   for (block_t *rover = heap.next; rover != &heap; rover = rover->next) {
     total_heap += rover->size;
   }
 
+  fputs("Out of memory:\n", stderr);
+  fputs(itoa(total_heap, buf, 10), stderr);
+  fputs(" bytes used\n", stderr);
+  fputs(itoa(requested, buf, 10), stderr);
+  fputs(" bytes requested\n", stderr);
   err_fatal(ERR_OUT_OF_MEMORY, "used %lu kB", (unsigned long)total_heap/1024);
 }
 
@@ -43,7 +50,7 @@ void *heap_malloc(size_t sz)
 {
   block_t *blk = malloc(sizeof(block_t) + sz);
   if (!blk)
-    out_of_memory();
+    out_of_memory(sz);
 
   blk->size = sz;
   dlist_add(&heap, blk);
@@ -56,7 +63,7 @@ void *heap_calloc(size_t nmemb, size_t sz)
   /* FIXME: Losing calloc's nmemb * sz overflow detection */
   block_t *blk = calloc(1, sizeof(block_t) + (nmemb * sz));
   if (!blk)
-    out_of_memory();
+    out_of_memory(nmemb*sz);
 
   blk->size = sz;
   dlist_add(&heap, blk);
@@ -75,7 +82,7 @@ void *heap_realloc(void *p, size_t sz)
 
   blk = realloc(blk, sizeof(block_t) + sz);
   if (!blk)
-    out_of_memory();
+    out_of_memory(sz);
 
   blk->size = sz;
   dlist_add(&heap, blk);

@@ -4,12 +4,17 @@
 #include "lex_lisp.h"
 #include "err.h"
 #include "reader.h"
+#include "printer.h"
 #include "list.h"
 #include "listsort.h"
 #include "gc.h"
 #include "vec.h"
 #include "eval.h"
 #include "map.h"
+
+#ifdef AGON_LIGHT
+#include <mos_api.h>
+#endif
 
 
 static char *repl_fgets(lexer_t lexer, char *s, int n, void *prompt);
@@ -50,6 +55,82 @@ MalVal *read_string(char *s)
   return val;
 }
 
+static MalVal *parse(lexer_get_input_t get_input, void *fh, ENV *env)
+{
+  MalVal *result = NULL;
+
+  lex_token_t *tokens = parse_lisp(get_input, fh);
+  linked_list_reverse((void**)&tokens);
+
+  lex_token_t *token = tokens;
+  while(token) {
+    result = EVAL(read_form(token, &token), env);
+    gc_mark(result, NULL);
+    gc(TRUE);
+  }
+
+  lex_free_tokens(tokens);
+
+  return result ? result : NIL;
+}
+
+#ifdef AGON_LIGHT
+#define CHAR_DEL 0x7f
+static char *preprocess_text(char *s)
+{
+  /* Process DEL chars */
+
+  while (*s == CHAR_DEL) {  /* DEL at start of string - ignore it */
+    memmove(s, &s[1], strlen(&s[1]) + 1);
+  }
+
+  for (char *c = s; *c; c++) {
+    if (*c == CHAR_DEL) {   // DEL character
+      unsigned l = strlen(c);
+      memmove(c - 1, c + 1, l - 1);
+      *(c + l - 2) = '\0';
+      c -= 2;
+    }
+  }
+
+  return s;
+}
+
+static char *mos_fgets(lexer_t lexer, char *buf, int sz, void *data)
+{
+  uint8_t *fh = data;
+
+  if (mos_feof(*fh))
+    return NULL;
+
+  unsigned rc = mos_fread(*fh, buf, (unsigned)sz-1);
+  if (rc == 0)
+    return NULL;
+
+  buf[rc] = '\0';
+
+  preprocess_text(buf);
+
+  return buf;
+}
+
+MalVal *load_file(const char *fname, ENV *env)
+{
+  MalVal *result = NULL;
+
+  uint8_t fh = mos_fopen(fname, FA_OPEN_EXISTING|FA_READ);
+  if (!fh)
+    malthrow("cannot open file %s");
+
+  while (!mos_feof(fh)) {
+    result = parse(mos_fgets, &fh, env);
+  }
+
+  mos_fclose(fh);
+
+  return result ? result : NIL;
+}
+#else
 static char *file_fgets(lexer_t lexer, char *s, int n, void *_fh)
 {
   return fgets(s, n, _fh);
@@ -59,30 +140,19 @@ MalVal *load_file(const char *fname, ENV *env)
 {
   MalVal *result = NULL;
 
-#ifdef AGON_LIGHT
-#error NIY
-#else
   FILE *fh = fopen(fname, "r");
   if (!fh)
     malthrow("Cannot open file");
 
   while (!feof(fh)) {
-    lex_token_t *tokens = parse_lisp(file_fgets, fh);
-    linked_list_reverse((void**)&tokens);
-
-    lex_token_t *token = tokens;
-    while(token) {
-      result = EVAL(read_form(token, &token), env);
-    }
-
-    lex_free_tokens(tokens);
+    result = parse(file_fgets, fh, env);
   }
 
   fclose(fh);
-#endif
 
   return result ? result : NIL;
 }
+#endif
 
 MalVal *read_form(lex_token_t *token, lex_token_t **next)
 {
@@ -272,7 +342,7 @@ MalVal *reader_withmeta(lex_token_t *token, lex_token_t **next)
   return malval_list_weak(list);
 }
 
-static int token_depth(lex_token_t *tok)
+int token_depth(lex_token_t *tok)
 {
   int depth = 0;
   while (tok) {

@@ -95,6 +95,8 @@ MalVal *malval_bool(bool);
 MalVal *malval_symbol(const char *);
 MalVal *malval_keyword(const char *);
 MalVal *malval_string(const char *);
+/** MalVal takes ownership of string */
+MalVal *malval_string_own(char *);
 MalVal *malval_list(struct List*);
 MalVal *malval_list_weak(struct List*);
 MalVal *malval_vector(struct Vec*);
