@@ -21,6 +21,16 @@ char *pr_str(const MalVal *val, bool readable)
       itoa(VAL_NUMBER(val), buf, 10);
       return strdup(buf);
 
+    case TYPE_BYTE:
+      if (VAL_BYTE(val) < 16) {
+        strcpy(buf, "0x0");
+        itoa(VAL_BYTE(val), &buf[3], 16);
+      } else {
+        strcpy(buf, "0x");
+        itoa(VAL_BYTE(val), &buf[2], 16);
+      }
+      return strdup(buf);
+
     case TYPE_LIST:
       return pr_str_list(VAL_LIST(val), readable);
 

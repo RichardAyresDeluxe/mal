@@ -18,6 +18,7 @@ typedef uint8_t MalType;
 #define TYPE_ATOM     ((MalType)0x03)
 #define TYPE_NUMBER   ((MalType)0x11)
 #define TYPE_BOOL     ((MalType)0x12)
+#define TYPE_BYTE     ((MalType)0x13)
 #define TYPE_LIST     ((MalType)0x21)
 #define TYPE_VECTOR   ((MalType)0x22)
 #define TYPE_MAP      ((MalType)0x23)
@@ -74,6 +75,7 @@ typedef struct MalVal {
   uint8_t unused:1;
   uint8_t mark:1;           /* marked - do not collect garbage */
   union {
+    uint8_t byte;
     int number;
     bool bool;
     struct MalVal *atom;
@@ -105,6 +107,7 @@ MalVal *malval_set(struct Map*);
 MalVal *malval_function(struct Function*);
 MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
+MalVal *malval_byte(uint8_t);
 
 uint16_t malval_hash(MalVal*);
 
@@ -127,6 +130,7 @@ extern MalVal *_nil, *_true, *_false;
 #define VAL_SET(val) ((val)->data.set->set)
 #define VAL_FUNCTION(val) ((val)->data.fn->fn)
 #define VAL_NUMBER(val) ((val)->data.number)
+#define VAL_BYTE(val) ((val)->data.byte)
 #define VAL_BOOL(val) ((val)->data.bool)
 #define VAL_STRING(val) ((val)->data.string)
 #define VAL_ATOM(val) ((val)->data.atom)

@@ -98,6 +98,34 @@ bool builtins_args_check(
   return TRUE;
 }
 
+static int _plus(int a, MalVal *b)
+{
+  if (VAL_TYPE(b) == TYPE_BYTE)
+    return a + VAL_BYTE(b);
+  return a + VAL_NUMBER(b);
+}
+
+static int _minus(int a, MalVal *b)
+{
+  if (VAL_TYPE(b) == TYPE_BYTE)
+    return a - VAL_BYTE(b);
+  return a - VAL_NUMBER(b);
+}
+
+static int _multiply(int a, MalVal *b)
+{
+  if (VAL_TYPE(b) == TYPE_BYTE)
+    return a * VAL_BYTE(b);
+  return a * VAL_NUMBER(b);
+}
+
+static int _divide(int a, MalVal *b)
+{
+  if (VAL_TYPE(b) == TYPE_BYTE)
+    return a / VAL_BYTE(b);
+  return a / VAL_NUMBER(b);
+}
+
 static MalVal *plus(List *args, ENV *env)
 {
   if (!builtins_all_numeric(args))
@@ -106,8 +134,9 @@ static MalVal *plus(List *args, ENV *env)
   int result = 0;
 
   for (List *rover = args; rover; rover = rover->tail) {
-    result += rover->head->data.number;
+    result = _plus(result, rover->head);
   }
+
   return malval_number(result);
 }
 
@@ -119,11 +148,12 @@ static MalVal *minus(List *args, ENV *env)
     return NIL;
   }
 
-  int result = args->head->data.number;
+  int result = VAL_TYPE(args->head) == TYPE_NUMBER ? VAL_NUMBER(args->head) : VAL_BYTE(args->head);
 
   for (List *rover = args->tail; rover; rover = rover->tail) {
-    result -= rover->head->data.number;
+    result = _minus(result, rover->head);
   }
+
   return malval_number(result);
 }
 
@@ -135,7 +165,7 @@ static MalVal *multiply(List *args, ENV *env)
   int result = 1;
 
   for (List *rover = args; rover; rover = rover->tail) {
-    result *= rover->head->data.number;
+    result = _multiply(result, rover->head);
   }
   return malval_number(result);
 }
@@ -148,10 +178,10 @@ static MalVal *divide(List *args, ENV *env)
     return NIL;
   }
 
-  int result = args->head->data.number;
+  int result = VAL_TYPE(args->head) == TYPE_NUMBER ? VAL_NUMBER(args->head) : VAL_BYTE(args->head);
 
   for (List *rover = args->tail; rover; rover = rover->tail) {
-    result /= rover->head->data.number;
+    result = _divide(result, rover->head);
   }
   return malval_number(result);
 }
@@ -773,6 +803,13 @@ static MalVal *core_symbol(List *args, ENV *env)
   return malval_symbol(args->head->data.string);
 }
 
+static MalVal *core_byte(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, types_numbers))
+    return NIL;
+  return malval_byte((uint8_t)VAL_NUMBER(args->head));
+}
+
 static MalType types_keyword[] = {METATYPE_STRING, 0};
 static MalVal *core_keyword(List *args, ENV *env)
 {
@@ -1317,6 +1354,7 @@ struct ns core_ns[] = {
   {"nil?", core_is_nil},
   {"true?", core_is_true},
   {"false?", core_is_false},
+  {"byte", core_byte},
   {"symbol", core_symbol},
   {"symbol?", core_is_symbol},
   {"keyword", core_keyword},

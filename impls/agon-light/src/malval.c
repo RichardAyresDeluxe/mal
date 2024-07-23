@@ -122,6 +122,13 @@ MalVal *malval_number(int number)
   return val;
 }
 
+MalVal *malval_byte(uint8_t b)
+{
+  MalVal *val = malval_create(TYPE_BYTE);
+  val->data.byte = b;
+  return val;
+}
+
 MalVal *malval_atom(struct MalVal *v)
 {
   MalVal *val = malval_create(TYPE_ATOM);
@@ -164,6 +171,7 @@ void malval_free(MalVal *val)
       heap_free(val->data.fn);
       break;
     case TYPE_NUMBER:
+    case TYPE_BYTE:
     case TYPE_ATOM:
     case TYPE_BOOL:
     case TYPE_NIL:
@@ -232,6 +240,12 @@ bool malval_equals(MalVal *a, MalVal *b)
     if (VAL_TYPE(b) == TYPE_LIST && VAL_TYPE(a) == TYPE_VECTOR)
       return list_equals_vec(VAL_LIST(b), VAL_VEC(a));
 
+    if (VAL_TYPE(a) == TYPE_BYTE && VAL_TYPE(b) == TYPE_NUMBER)
+      return (int)VAL_BYTE(a) == VAL_NUMBER(b);
+
+    if (VAL_TYPE(b) == TYPE_BYTE && VAL_TYPE(a) == TYPE_NUMBER)
+      return (int)VAL_BYTE(b) == VAL_NUMBER(a);
+
     return FALSE;
   }
 
@@ -240,6 +254,8 @@ bool malval_equals(MalVal *a, MalVal *b)
       return TRUE;
     case TYPE_NUMBER:
       return a->data.number == b->data.number;
+    case TYPE_BYTE:
+      return a->data.byte == b->data.byte;
     case TYPE_BOOL:
       return a->data.bool == b->data.bool;
     case TYPE_STRING:
@@ -275,8 +291,10 @@ uint16_t malval_hash(MalVal *val)
       return string_hash(VAL_STRING(val));
     case TYPE_SYMBOL:
       return symbol_hash(VAL_STRING(val));
+    case TYPE_BYTE:
+      return (HASH_INIT_BYTE * VAL_BYTE(val)) % 65521;
     case TYPE_NUMBER:
-      return (251L * VAL_NUMBER(val)) % 65521;
+      return ((long)HASH_INIT_NUMBER * VAL_NUMBER(val)) % 65521;
     case TYPE_LIST:
       return list_hash(VAL_LIST(val));
     case TYPE_VECTOR:
