@@ -121,14 +121,6 @@ static struct Body *create_body(List *list)
     return NULL;
   }
 
-  for (List *bind = lbinds; bind; bind = bind->tail) {
-    if (VAL_TYPE(bind->head) != TYPE_SYMBOL) {
-      list_release(lbinds);
-      err_warning(ERR_ARGUMENT_MISMATCH, "function bindings must be symbols");
-      return NULL;
-    }
-  }
-
   unsigned nbinds = list_count(lbinds);
   if (nbinds > MAX_ARITY) {
     list_release(lbinds);

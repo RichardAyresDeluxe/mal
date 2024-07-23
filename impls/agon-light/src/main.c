@@ -317,20 +317,15 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
    * of bindings */
   env_set(let, malval_symbol("__list"), malval_list(list));
 
+  unsigned c = 0;
   MalVal *sym;
   while ((sym = iter_next(iter)) != NULL) {
     MalVal *val = iter_next(iter);
     assert(val != NULL);
 
-    if (VAL_TYPE(sym) != TYPE_SYMBOL) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "can only bind to symbols");
-      env_release(let);
-      iter_destroy(iter);
-      *out = NIL;
-      return;
-    }
-
-    env_set(let, sym, val);
+    push_temp(sym);
+    push_temp(val);
+    c++;
   }
 
   iter_reset(iter);
@@ -341,9 +336,12 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
       *out = NIL;
       return;
     }
+
     env_set(let, sym, val);
   }
   iter_destroy(iter);
+
+  pop_temps(c * 2);
 
   assert(list->tail != NULL);
   *out = list->tail->head;

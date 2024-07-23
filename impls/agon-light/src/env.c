@@ -5,6 +5,12 @@
 #include "gc.h"
 #include "map.h"
 #include "err.h"
+#include "vec.h"
+#include "eval.h"
+#include "iter.h"
+#include "printer.h"
+
+#include <stdio.h>
 
 struct ENV {
   struct ENV *prev, *next;
@@ -50,12 +56,7 @@ ENV *env_create(ENV *parent, List *binds, List *values)
   
   List *bind, *value;
   for (bind = binds, value = values; bind && value; bind = bind->tail, value = value->tail) {
-    if (bind->head->type != TYPE_SYMBOL) {
-      err_warning(ERR_ARGUMENT_MISMATCH, "Cannot not bind non-symbol");
-      continue;
-    }
-
-    if (bind->head->data.string[0] == '&') {
+    if (VAL_TYPE(bind->head) == TYPE_SYMBOL && VAL_STRING(bind->head)[0] == '&') {
       /* variadic, so set to the remaining values and stop binding */
       env_set(env, malval_symbol(&bind->head->data.string[1]), malval_list(value));
       break;
@@ -108,9 +109,73 @@ void env_destroy(ENV *env)
   heap_free(env);
 }
 
+static void destruct_bind_vec(ENV *env, MalVal *binds, MalVal *value)
+{
+  puts("destruct_bind_vec");
+  Iterator *biter = iter_create(binds);
+  if (!biter)
+    return;
+
+  Iterator *viter = iter_create(value);
+  if (!viter) {
+    iter_destroy(biter);
+    return;
+  }
+
+  char kw_as[] = {-1, 'a', 's', '\0'};
+
+  MalVal *b;
+  while ((b = iter_next(biter)) != NULL) {
+    if (VAL_TYPE(b) != TYPE_SYMBOL)
+      continue;
+
+    if (strcmp(VAL_STRING(b), kw_as) == 0) {
+      MalVal *as = iter_next(biter);
+      env_set(env, as, value);
+    }
+    else if (VAL_STRING(b)[0] == '&') {
+      List *r = NULL;
+      MalVal *v;
+      while ((v = iter_next(viter)) != NULL)
+        r = cons_weak(v, r);
+      list_reverse(&r);
+      env_set(env, malval_symbol(&VAL_STRING(b)[1]), malval_list_weak(r));
+      break;
+    }
+    else {
+      env_set(env, b, iter_next(viter));
+    }
+  }
+
+  iter_destroy(viter);
+  iter_destroy(biter);
+}
+
+static void destruct_bind_map(ENV *env, MalVal *binds, MalVal *value)
+{
+
+}
+
+
 void env_set(ENV *env, MalVal *key, MalVal *val)
 {
-  map_add(env->map, key, val);
+  switch(VAL_TYPE(key)) {
+    case TYPE_SYMBOL:
+      map_add(env->map, key, val);
+      break;
+
+    case TYPE_VECTOR:
+      destruct_bind_vec(env, key, val);
+      break;
+
+    case TYPE_MAP:
+      destruct_bind_map(env, key, val);
+      break;
+
+    default:
+      exception = malval_string("Cannot bind non-symbol");
+      break;
+  }
 }
 
 ENV *env_find(ENV *env, MalVal *key)
