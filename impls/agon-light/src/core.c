@@ -574,7 +574,7 @@ static MalVal *core_reverse(List *args, ENV *env)
   return malval_list_weak(result);
 }
 
-static MalType types_map[] = {TYPE_FUNCTION, METATYPE_CONTAINER, 0};
+static MalType types_map[] = {TYPE_FUNCTION, 0};
 static MalVal *core_map(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 2, 2, types_map))
@@ -583,12 +583,20 @@ static MalVal *core_map(List *args, ENV *env)
   List *result = NULL;
   Function *f = VAL_FUNCTION(args->head);
 
+  Iterator *iter = iter_create(args->tail->head);
+  if (!iter)
+    return NIL;
+
   push_temp(malval_list(args));
 
-  Iterator *iter = iter_create(args->tail->head);
   MalVal *val;
   while ((val = iter_next(iter)) != NULL) {
     result = cons_weak(apply1(f, val), result);
+    if (exception) {
+      iter_destroy(iter);
+      pop_temp();
+      return NIL;
+    }
   }
   iter_destroy(iter);
   list_reverse(&result);

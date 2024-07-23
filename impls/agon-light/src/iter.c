@@ -9,12 +9,16 @@ struct Iterator {
   union {
     struct {
       Vec *vec;
-      int index;
+      unsigned index;
     } v;
     struct {
       List *list;
       List *rover;
     } l;
+    struct {
+      char *string;
+      unsigned index;
+    } s;
   } c;
 };
 
@@ -31,6 +35,11 @@ Iterator *iter_create(MalVal *val)
       it->c.v.vec = VAL_VEC(val);
       it->c.v.index = 0;
       break;
+    case TYPE_STRING:
+    case TYPE_SYMBOL:
+      it->c.s.string = VAL_STRING(val);
+      it->c.s.index = 0;
+      break;
     default:
       heap_free(it);
       exception = malval_string("Invalid container for iter()");
@@ -42,10 +51,18 @@ Iterator *iter_create(MalVal *val)
 
 void iter_reset(Iterator *iter)
 {
-  if (iter->type == TYPE_LIST)
+  switch(iter->type) {
+  case TYPE_LIST:
     iter->c.l.rover = iter->c.l.list;
-  else if (iter->type == TYPE_VECTOR)
+    break;
+  case TYPE_VECTOR:
     iter->c.v.index = 0;
+    break;
+  case TYPE_SYMBOL:
+  case TYPE_STRING:
+    iter->c.s.index = 0;
+    break;
+  }
 }
 
 void iter_destroy(Iterator *iter)
@@ -59,21 +76,32 @@ MalVal *iter_next(Iterator *iter)
 {
   MalVal *rv = NULL;
 
-  if (iter->type == TYPE_LIST) {
+  switch(iter->type) {
+  case TYPE_LIST:
     if (!iter->c.l.rover)
       return NULL;
-
     rv = iter->c.l.rover->head;
     iter->c.l.rover = iter->c.l.rover->tail;
-  }
-  else if (iter->type == TYPE_VECTOR) {
+    break;
+  case TYPE_VECTOR:
     if (iter->c.v.index >= vec_count(iter->c.v.vec))
       return NULL;
     rv = vec_get(iter->c.v.vec, iter->c.v.index);
     iter->c.v.index++;
+    break;
+  case TYPE_STRING:
+  case TYPE_SYMBOL: {
+    char s[2] = {0, 0};
+    if (iter->c.s.string[iter->c.s.index] == '\0')
+        return NULL;
+    s[0] = iter->c.s.string[iter->c.s.index++];
+    rv = malval_string(s);
+    break;
   }
-  else
+  default:
     exception = malval_string("Invalid iterator");
+    break;
+  }
 
   return rv;
 }
