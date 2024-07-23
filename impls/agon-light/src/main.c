@@ -23,7 +23,9 @@
 #include <string.h>
 #include <alloca.h>
 
+#ifndef AGON_LIGHT
 extern void __fpurge(FILE*);
+#endif
 
 struct options {
   int verbosity;
@@ -756,7 +758,9 @@ static void cleanup(void)
 
 
 #ifndef NDEBUG
+#ifndef AGON_LIGHT
   __fpurge(stdout);
+#endif
   unsigned count, size;
   value_info(&count, &size);
   fprintf(stderr, "Values remaining: %u (%u bytes)\n", count, size);
@@ -791,15 +795,18 @@ static void build_env(void)
 {
   repl_env = env_create(NULL, NULL, NULL);
 
-  for (struct ns *ns = core_ns; ns->name != NULL; ns++) {
-    env_set(repl_env, malval_symbol(ns->name), function_create_builtin(ns->fn));
-  }
-
   env_set(repl_env, malval_symbol("nil"), _nil);
   env_set(repl_env, malval_symbol("true"), _true);
   env_set(repl_env, malval_symbol("false"), _false);
   env_set(repl_env, malval_symbol("eval"), function_create_builtin(builtin_eval));
   env_set(repl_env, malval_symbol("load-file"), function_create_builtin(builtin_load_file));
+
+  for (struct ns *ns = core_ns; ns->name != NULL; ns++) {
+    env_set(repl_env, malval_symbol(ns->name), function_create_builtin(ns->fn));
+  }
+  for (struct ns *ns = core_mos_ns; ns->name != NULL; ns++) {
+    env_set(repl_env, malval_symbol(ns->name), function_create_builtin(ns->fn));
+  }
 }
 
 void process_option(int *arg, char **option)
@@ -839,10 +846,6 @@ static void init_mal(void)
     s = strtok(NULL, "\f");
   } while(s);
 }
-
-#ifndef AGON_LIGHT
-extern void __fpurge(FILE*);
-#endif
 
 int main(int argc, char **argv)
 {
@@ -925,9 +928,6 @@ int main(int argc, char **argv)
     s = rep(repl_env, "(debug-info)");
     puts(s);
     heap_free(s);
-    char buf[12];
-    fputs(itoa(temps_count(), buf, 10), stdout);
-    puts(" temps left");
 #endif
   }
 }

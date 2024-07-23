@@ -30,8 +30,6 @@
 #include <sys/time.h>
 #endif
 
-#define ARGS_MAX MAX_ARITY
-
 static MalType types_string[] = {TYPE_STRING, 0};
 static MalType types_container[] = {METATYPE_CONTAINER, 0};
 static MalType types_containers[] = {
@@ -813,9 +811,31 @@ static MalVal *core_symbol(List *args, ENV *env)
 
 static MalVal *core_byte(List *args, ENV *env)
 {
-  if (!builtins_args_check(args, 1, 1, types_numbers))
+  if (!builtins_args_check(args, 1, 1, NULL))
     return NIL;
-  return malval_byte((uint8_t)VAL_NUMBER(args->head));
+
+  switch (VAL_TYPE(args->head)) {
+    case TYPE_BYTE:     return args->head;
+    case TYPE_NUMBER:   return malval_byte(VAL_NUMBER(args->head));
+    case TYPE_BOOL:     return malval_byte(VAL_BOOL(args->head) ? 1 : 0);
+    case TYPE_STRING:   return malval_byte(VAL_STRING(args->head)[0]);
+  }
+
+  malthrow("cannot convert object to byte");
+}
+
+static MalVal *core_int(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  switch (VAL_TYPE(args->head)) {
+    case TYPE_BYTE:     return malval_number(VAL_BYTE(args->head));
+    case TYPE_NUMBER:   return args->head;
+    case TYPE_BOOL:     return malval_number(VAL_BOOL(args->head) ? 1 : 0);
+  }
+
+  malthrow("cannot convert object to byte");
 }
 
 static MalType types_keyword[] = {METATYPE_STRING, 0};
@@ -1307,6 +1327,10 @@ static MalVal *core_hash(List *args, ENV *env)
   return malval_number(malval_hash(args->head));
 }
 
+#ifdef AGON_LIGHT
+extern int __heaptop, __heapbot;
+extern void *_alloc_base[2];
+#endif
 static MalVal *core_debug_info(List *args, ENV *env)
 {
   if (!builtins_args_check(args, 0, 0, NULL))
@@ -1326,9 +1350,17 @@ static MalVal *core_debug_info(List *args, ENV *env)
   values = map_createN(2);
   heap_info(&count, &size);
   map_add(values, malval_keyword(":count"), malval_number(count));
-  map_add(values, malval_keyword(":size"), malval_number(size));
+  map_add(values, malval_keyword(":used"), malval_number(size));
+#ifdef AGON_LIGHT
+  map_add(values, malval_keyword(":total"), malval_number((unsigned long)&__heaptop - (unsigned long)&__heapbot));
+#endif
   map_add(result, malval_keyword(":heap"), malval_map(values));
   map_release(values);
+#endif
+
+#ifdef AGON_LIGHT
+  printf("_alloc_base[0]=%p\n", _alloc_base[0]);
+  printf("_alloc_base[1]=%p\n", _alloc_base[0]);
 #endif
 
   MalVal *rv = malval_map(result);
@@ -1363,6 +1395,7 @@ struct ns core_ns[] = {
   {"true?", core_is_true},
   {"false?", core_is_false},
   {"byte", core_byte},
+  {"int", core_int},
   {"symbol", core_symbol},
   {"symbol?", core_is_symbol},
   {"keyword", core_keyword},
