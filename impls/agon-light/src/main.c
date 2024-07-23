@@ -880,7 +880,7 @@ int main(int argc, char **argv)
   }
 
   if (!options.ignore_init) {
-    load_file("init.mal", repl_env);
+    load_file("lib/init.mal", repl_env);
     if (exception) {
       print_exception();
       exit(1);
