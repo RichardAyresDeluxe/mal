@@ -25,6 +25,28 @@ MalVal *malval_create(MalType type)
   return val;
 }
 
+MalVal *malval_dup(MalVal *v)
+{
+  MalVal *out = malval_create(v->type);
+  switch(VAL_TYPE(v)) {
+  case TYPE_BYTE:
+    VAL_BYTE(out) = VAL_BYTE(v);
+    break;
+  case TYPE_BOOL:
+    VAL_BOOL(out) = VAL_BOOL(v);
+    break;
+  case TYPE_NUMBER:
+    VAL_NUMBER(out) = VAL_NUMBER(v);
+    break;
+  case TYPE_FLOAT:
+    VAL_FLOAT(out) = VAL_FLOAT(v);
+    break;
+  default:
+    malthrow("Can only dup numbers and bool");
+  }
+  return out;
+}
+
 MalVal *malval_symbol(const char *s)
 {
   MalVal *val = malval_create(TYPE_SYMBOL);
@@ -122,6 +144,13 @@ MalVal *malval_number(int number)
   return val;
 }
 
+MalVal *malval_float(float_t f)
+{
+  MalVal *val = malval_create(TYPE_FLOAT);
+  val->data.flt = f;
+  return val;
+}
+
 MalVal *malval_byte(uint8_t b)
 {
   MalVal *val = malval_create(TYPE_BYTE);
@@ -171,6 +200,7 @@ void malval_free(MalVal *val)
       heap_free(val->data.fn);
       break;
     case TYPE_NUMBER:
+    case TYPE_FLOAT:
     case TYPE_BYTE:
     case TYPE_ATOM:
     case TYPE_BOOL:
@@ -254,6 +284,8 @@ bool malval_equals(MalVal *a, MalVal *b)
       return TRUE;
     case TYPE_NUMBER:
       return a->data.number == b->data.number;
+    case TYPE_FLOAT:
+      return VAL_FLOAT(a) == VAL_FLOAT(b);
     case TYPE_BYTE:
       return a->data.byte == b->data.byte;
     case TYPE_BOOL:
@@ -295,6 +327,14 @@ uint16_t malval_hash(MalVal *val)
       return (HASH_INIT_BYTE * VAL_BYTE(val)) % 65521;
     case TYPE_NUMBER:
       return ((long)HASH_INIT_NUMBER * VAL_NUMBER(val)) % 65521;
+    case TYPE_FLOAT: {
+      unsigned hv = HASH_INIT_FLOAT;
+      unsigned c = sizeof(VAL_FLOAT(val));
+      uint8_t *ptr = (void*)&VAL_FLOAT(val);
+      while (c --> 0)
+        hv = (hv * 31 + HASH_INIT_FLOAT * *ptr++) % 65521;
+      return hv;
+    }
     case TYPE_LIST:
       return list_hash(VAL_LIST(val));
     case TYPE_VECTOR:

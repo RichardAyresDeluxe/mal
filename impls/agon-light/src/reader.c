@@ -184,13 +184,33 @@ MalVal *read_form(lex_token_t *token, lex_token_t **next)
   return rv;
 }
 
+static MalVal *token_to_float(lex_token_t *token)
+{
+  char *endptr;
+#ifdef AGON_LIGHT
+  float rv = strtof(token->value, &endptr);
+#else
+  double rv = strtod(token->value, &endptr);
+#endif
+
+  if (rv == 0.0 && endptr == token->value) {
+    /* error in conversion */
+    malthrow("cannot convert %s to float");
+  }
+
+  return malval_float(rv);
+}
+
 MalVal *read_atom(lex_token_t *token, lex_token_t **next)
 {
   MalVal *val;
 
   switch(token->type) {
     case TOKEN_TYPE_NUMBER:
-      val = malval_number(strtol(token->value, NULL, 10));
+      if (strchr(token->value, '.'))
+        val = token_to_float(token);
+      else
+        val = malval_number(strtol(token->value, NULL, 10));
       *next = token->next;
       return val;
 

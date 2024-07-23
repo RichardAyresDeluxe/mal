@@ -19,6 +19,7 @@ typedef uint8_t MalType;
 #define TYPE_NUMBER   ((MalType)0x11)
 #define TYPE_BOOL     ((MalType)0x12)
 #define TYPE_BYTE     ((MalType)0x13)
+#define TYPE_FLOAT    ((MalType)0x14)
 #define TYPE_LIST     ((MalType)0x21)
 #define TYPE_VECTOR   ((MalType)0x22)
 #define TYPE_MAP      ((MalType)0x23)
@@ -69,6 +70,12 @@ struct FunctionWithMeta {
   struct MalVal *meta;
 };
 
+#ifdef AGON_LIGHT
+typedef float float_t;
+#else
+typedef double float_t;
+#endif
+
 typedef struct MalVal {
   struct MalVal *next;      /* used for garbage collection */
   uint8_t type:6;
@@ -78,6 +85,7 @@ typedef struct MalVal {
     uint8_t byte;
     int number;
     bool bool;
+    float_t flt;
     struct MalVal *atom;
     char *string;
     void *data;
@@ -107,7 +115,10 @@ MalVal *malval_set(struct Map*);
 MalVal *malval_function(struct Function*);
 MalVal *malval_atom(struct MalVal*);
 MalVal *malval_number(int);
+MalVal *malval_float(float_t);
 MalVal *malval_byte(uint8_t);
+/** Only for numbers */
+MalVal *malval_dup(MalVal*);
 
 uint16_t malval_hash(MalVal*);
 
@@ -130,6 +141,7 @@ extern MalVal *_nil, *_true, *_false;
 #define VAL_SET(val) ((val)->data.set->set)
 #define VAL_FUNCTION(val) ((val)->data.fn->fn)
 #define VAL_NUMBER(val) ((val)->data.number)
+#define VAL_FLOAT(val) ((val)->data.flt)
 #define VAL_BYTE(val) ((val)->data.byte)
 #define VAL_BOOL(val) ((val)->data.bool)
 #define VAL_STRING(val) ((val)->data.string)

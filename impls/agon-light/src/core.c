@@ -96,32 +96,99 @@ bool builtins_args_check(
   return TRUE;
 }
 
-static int _plus(int a, MalVal *b)
+static float_t number_to_float(MalVal *n)
 {
-  if (VAL_TYPE(b) == TYPE_BYTE)
-    return a + VAL_BYTE(b);
-  return a + VAL_NUMBER(b);
+  switch(VAL_TYPE(n)) {
+  case TYPE_FLOAT:
+    return VAL_FLOAT(n);
+  case TYPE_NUMBER:
+    return (float_t)VAL_NUMBER(n);
+  case TYPE_BYTE:
+    return (float_t)VAL_BYTE(n);
+  }
+  err_fatal(ERR_ARGUMENT_MISMATCH, "invalid number");
+  return 0;
 }
 
-static int _minus(int a, MalVal *b)
+static int number_to_int(MalVal *n)
 {
-  if (VAL_TYPE(b) == TYPE_BYTE)
-    return a - VAL_BYTE(b);
-  return a - VAL_NUMBER(b);
+  switch(VAL_TYPE(n)) {
+  case TYPE_FLOAT:
+    return (int)VAL_FLOAT(n);
+  case TYPE_NUMBER:
+    return VAL_NUMBER(n);
+  case TYPE_BYTE:
+    return (int)VAL_BYTE(n);
+  }
+  err_fatal(ERR_ARGUMENT_MISMATCH, "invalid number");
+  return 0;
 }
 
-static int _multiply(int a, MalVal *b)
+static MalVal *_plus(MalVal *a, MalVal *b)
 {
-  if (VAL_TYPE(b) == TYPE_BYTE)
-    return a * VAL_BYTE(b);
-  return a * VAL_NUMBER(b);
+  if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
+    float_t result = number_to_float(a) + number_to_float(b);
+    a->type = TYPE_FLOAT;
+    VAL_FLOAT(a) = result;
+    return a;
+  }
+
+  int result = number_to_int(a) + number_to_int(b);
+  a->type = TYPE_NUMBER;
+  VAL_NUMBER(a) = result;
+  return a;
 }
 
-static int _divide(int a, MalVal *b)
+static MalVal *_minus(MalVal *a, MalVal *b)
 {
-  if (VAL_TYPE(b) == TYPE_BYTE)
-    return a / VAL_BYTE(b);
-  return a / VAL_NUMBER(b);
+  if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
+    float_t result = number_to_float(a) - number_to_float(b);
+    a->type = TYPE_FLOAT;
+    VAL_FLOAT(a) = result;
+    return a;
+  }
+
+  int result = number_to_int(a) - number_to_int(b);
+  a->type = TYPE_NUMBER;
+  VAL_NUMBER(a) = result;
+  return a;
+}
+
+static MalVal *_multiply(MalVal *a, MalVal *b)
+{
+  if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
+    float_t result = number_to_float(a) * number_to_float(b);
+    a->type = TYPE_FLOAT;
+    VAL_FLOAT(a) = result;
+    return a;
+  }
+
+  int result = number_to_int(a) * number_to_int(b);
+  a->type = TYPE_NUMBER;
+  VAL_NUMBER(a) = result;
+  return a;
+}
+
+static MalVal *_divide(MalVal *a, MalVal *b)
+{
+  if (VAL_TYPE(a) == TYPE_FLOAT || VAL_TYPE(b) == TYPE_FLOAT) {
+    float_t bn = number_to_float(b);
+    if (bn == 0.0)
+      malthrow("divide by zero");
+
+    float_t result = number_to_float(a) / bn;
+    a->type = TYPE_FLOAT;
+    VAL_FLOAT(a) = result;
+    return a;
+  }
+
+  int bn = number_to_int(b);
+  if (bn == 0)
+      malthrow("divide by zero");
+  int result = number_to_int(a) / bn;
+  a->type = TYPE_NUMBER;
+  VAL_NUMBER(a) = result;
+  return a;
 }
 
 static MalVal *plus(List *args, ENV *env)
@@ -129,13 +196,13 @@ static MalVal *plus(List *args, ENV *env)
   if (!builtins_all_numeric(args))
     return NIL;
 
-  int result = 0;
+  MalVal *result = malval_number(0);
 
   for (List *rover = args; rover; rover = rover->tail) {
     result = _plus(result, rover->head);
   }
 
-  return malval_number(result);
+  return result;
 }
 
 static MalVal *minus(List *args, ENV *env)
@@ -146,13 +213,13 @@ static MalVal *minus(List *args, ENV *env)
     return NIL;
   }
 
-  int result = VAL_TYPE(args->head) == TYPE_NUMBER ? VAL_NUMBER(args->head) : VAL_BYTE(args->head);
+  MalVal *result = malval_dup(args->head);
 
   for (List *rover = args->tail; rover; rover = rover->tail) {
     result = _minus(result, rover->head);
   }
 
-  return malval_number(result);
+  return result;
 }
 
 static MalVal *multiply(List *args, ENV *env)
@@ -160,12 +227,12 @@ static MalVal *multiply(List *args, ENV *env)
   if (!builtins_all_numeric(args))
     return NIL;
 
-  int result = 1;
+  MalVal *result = malval_number(1);
 
   for (List *rover = args; rover; rover = rover->tail) {
     result = _multiply(result, rover->head);
   }
-  return malval_number(result);
+  return result;
 }
 
 static MalVal *divide(List *args, ENV *env)
@@ -176,12 +243,12 @@ static MalVal *divide(List *args, ENV *env)
     return NIL;
   }
 
-  int result = VAL_TYPE(args->head) == TYPE_NUMBER ? VAL_NUMBER(args->head) : VAL_BYTE(args->head);
+  MalVal *result = malval_dup(args->head);
 
   for (List *rover = args->tail; rover; rover = rover->tail) {
     result = _divide(result, rover->head);
   }
-  return malval_number(result);
+  return result;
 }
 
 static MalVal *lessthan(List *args, ENV *env)
@@ -835,7 +902,22 @@ static MalVal *core_int(List *args, ENV *env)
     case TYPE_BOOL:     return malval_number(VAL_BOOL(args->head) ? 1 : 0);
   }
 
-  malthrow("cannot convert object to byte");
+  malthrow("cannot convert object to integer");
+}
+
+static MalVal *core_float(List *args, ENV *env)
+{
+  if (!builtins_args_check(args, 1, 1, NULL))
+    return NIL;
+
+  switch (VAL_TYPE(args->head)) {
+    case TYPE_BYTE:     return malval_float(VAL_BYTE(args->head));
+    case TYPE_NUMBER:   return malval_float(VAL_NUMBER(args->head));
+    case TYPE_FLOAT:    return args->head;
+    case TYPE_BOOL:     return malval_float(VAL_BOOL(args->head) ? 1 : 0);
+  }
+
+  malthrow("cannot convert object to float");
 }
 
 static MalType types_keyword[] = {METATYPE_STRING, 0};
@@ -1396,6 +1478,7 @@ struct ns core_ns[] = {
   {"false?", core_is_false},
   {"byte", core_byte},
   {"int", core_int},
+  {"float", core_float},
   {"symbol", core_symbol},
   {"symbol?", core_is_symbol},
   {"keyword", core_keyword},

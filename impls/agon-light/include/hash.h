@@ -10,8 +10,9 @@
 #define HASH_INIT_VEC     71
 #define HASH_INIT_MAP     73
 #define HASH_INIT_FUNCTION 97
-#define HASH_INIT_NUMBER 251
-#define HASH_INIT_BYTE 257
+#define HASH_INIT_NUMBER  251
+#define HASH_INIT_BYTE    257
+#define HASH_INIT_FLOAT   263
 
 /** Take an uint16_t pointer to a hash value and
  * combine it with the hash of the given value, and

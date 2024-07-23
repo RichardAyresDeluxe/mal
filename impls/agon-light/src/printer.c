@@ -17,6 +17,10 @@ char *pr_str(const MalVal *val, bool readable)
     return strdup("null");
 
   switch(val->type) {
+    case TYPE_FLOAT:
+      ftoa(VAL_FLOAT(val), buf, 6);
+      return strdup(buf);
+
     case TYPE_NUMBER:
       itoa(VAL_NUMBER(val), buf, 10);
       return strdup(buf);
