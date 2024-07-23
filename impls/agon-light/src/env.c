@@ -11,6 +11,7 @@
 #include "printer.h"
 
 #include <stdio.h>
+#include <assert.h>
 
 struct ENV {
   struct ENV *prev, *next;
@@ -151,11 +152,110 @@ static void destruct_bind_vec(ENV *env, MalVal *binds, MalVal *value)
   iter_destroy(biter);
 }
 
-static void destruct_bind_map(ENV *env, MalVal *binds, MalVal *value)
-{
+struct map_destruct {
+  ENV *env;
+  MalVal *value;
+  MalVal *defaults;
+};
 
+static char kw_as[] = {-1, 'a', 's', '\0'};
+static char kw_or[] = {-1, 'o', 'r', '\0'};
+static char kw_keys[] = {-1, 'k', 'e', 'y', 's', '\0'};
+static void destruct_map_entry(MalVal *key, MalVal *val, void *_data)
+{
+  struct map_destruct *params = _data;
+
+  if (VAL_IS_KEYWORD(key) && strcmp(VAL_STRING(key), kw_as) == 0) {
+    /* set the symbol associated with ":as" to the whole value */
+    if (VAL_TYPE(val) != TYPE_SYMBOL) {
+      err_warning(ERR_ARGUMENT_MISMATCH, ":as must be followed by symbol");
+      return;
+    }
+    env_set(params->env, val, params->value);
+    return;
+  }
+
+  if (VAL_IS_KEYWORD(key) && strcmp(VAL_STRING(key), kw_keys) == 0) {
+    /* process :keys, val contains a vector of symbols that 
+     * will be set to entries in the map in params->value */
+    if (VAL_TYPE(params->value) != TYPE_MAP) {
+      exception = malval_string("parameter must be a map to use :keys");
+      return;
+    }
+
+    Iterator *iter = iter_create(val);
+    if (!iter) {
+      exception = malval_string(":keys must associate with a vector or list of symbols");
+      return;
+    }
+
+    MalVal *v;
+    while ((v = iter_next(iter)) != NULL) {
+      if (VAL_TYPE(v) != TYPE_SYMBOL) {
+        iter_destroy(iter);
+        exception = malval_string(":keys must associate with a vector or list of symbols");
+        return;
+      }
+
+      MalVal *value = map_find(VAL_MAP(params->value), malval_keyword(VAL_STRING(v)));
+      if (!value && params->defaults && VAL_TYPE(params->defaults) == TYPE_MAP) {
+        /* Try to find in defaults */
+        value = map_find(VAL_MAP(params->defaults), v);
+      }
+      if (!value)
+        value = NIL;
+
+      env_set(params->env, v, value);
+    }
+
+    iter_destroy(iter);
+    return;
+  }
+
+  if (VAL_TYPE(key) == TYPE_SYMBOL && VAL_TYPE(params->value) == TYPE_MAP) {
+    /* set symbol to named entry in map */
+    MalVal *value = map_find(VAL_MAP(params->value), val);
+    if (!value && params->defaults && VAL_TYPE(params->defaults) == TYPE_MAP) {
+      value = map_find(VAL_MAP(params->defaults), key);
+    }
+    if (!value)
+      value = NIL;
+    env_set(params->env, key, value);
+    return;
+  }
+
+  if (VAL_TYPE(key) == TYPE_SYMBOL && VAL_TYPE(params->value) == TYPE_VECTOR && VAL_TYPE(val) == TYPE_NUMBER) {
+    /* set symbol to value at index in vector */
+    MalVal *value = vec_get(VAL_VEC(params->value), VAL_NUMBER(val));
+    env_set(params->env, key, value);
+    return;
+  }
+
+  if (VAL_IS_KEYWORD(key) && strcmp(VAL_STRING(key), kw_or) == 0) {
+    /* ignore :or, already handled */
+    return;
+  }
+
+  exception = malval_string("Unexpected type destructuring map");
 }
 
+static void find_defaults(MalVal *key, MalVal *val, void *_defaults)
+{
+  MalVal **defaults = _defaults;
+
+  if (VAL_IS_KEYWORD(key) && strcmp(VAL_STRING(key), kw_or) == 0)
+    *defaults = val;
+}
+
+static void destruct_bind_map(ENV *env, MalVal *binds, MalVal *value)
+{
+  assert(VAL_TYPE(binds) == TYPE_MAP);
+
+  struct map_destruct map_params = {env, value, NULL};
+
+  map_foreach(VAL_MAP(binds), find_defaults, &map_params.defaults);
+  map_foreach(VAL_MAP(binds), destruct_map_entry, &map_params);
+}
 
 void env_set(ENV *env, MalVal *key, MalVal *val)
 {
