@@ -312,10 +312,7 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
   if (!iter)
     return;
 
-  /* We will put all our un-evaluated bodies in here 
-   * so that they do not get garbage collected during evaluation
-   * of bindings */
-  env_set(let, malval_symbol("__list"), malval_list(list));
+  push_temp(malval_list(list));
 
   unsigned c = 0;
   MalVal *sym;
@@ -332,6 +329,7 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
   while ((sym = iter_next(iter)) != NULL) {
     MalVal *val = EVAL(iter_next(iter), let);
     if (exception) {
+      pop_temps(c * 2 + 1);
       env_release(let);
       *out = NIL;
       return;
@@ -341,7 +339,7 @@ static void EVAL_let(List *list, ENV *env, MalVal **out, ENV **envout)
   }
   iter_destroy(iter);
 
-  pop_temps(c * 2);
+  pop_temps(c * 2 + 1);
 
   assert(list->tail != NULL);
   *out = list->tail->head;
