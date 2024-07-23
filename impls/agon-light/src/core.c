@@ -20,6 +20,10 @@
 #include <string.h>
 #include <alloca.h>
 
+#ifdef AGON_LIGHT
+#include <mos_api.h>
+#endif
+
 #ifndef AGON_LIGHT
 #include <sys/time.h>
 #endif
@@ -325,6 +329,9 @@ static MalVal *core_count(List *args, ENV *env)
       return malval_number(map_count(VAL_MAP(args->head)));
     case TYPE_SET:
       return malval_number(map_count(VAL_SET(args->head)));
+    case TYPE_STRING:
+    case TYPE_SYMBOL:
+      return malval_number(strlen(VAL_STRING(args->head)));
   }
 
   err_warning(ERR_ARGUMENT_MISMATCH, "cannot count object");
@@ -573,17 +580,28 @@ static MalVal *core_slurp(List *args, ENV *env)
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
 
-  char *s = NULL;
-#ifdef AGON_LIGHT
-  /* TODO: AGON VERSION */
-#error NIY
-#else
-  FILE *fh = fopen(args->head->data.string, "r");
-  if (!fh) {
-    err_warning(ERR_FILE_ERROR, "cannot open file");
-    return NIL;
-  }
   char buf[80];
+  char *s = NULL;
+
+#ifdef AGON_LIGHT
+  uint8_t fh = mos_fopen(VAL_STRING(args->head), FA_OPEN_EXISTING|FA_READ);
+  if (!fh)
+    malthrow("cannot open file %s");
+
+  while (!mos_feof(fh)) {
+    buf[0] = '\0';
+    unsigned rc = mos_fread(fh, buf, sizeof(buf)-1);
+    catstr(&s, buf);
+    if (rc == 0)
+      break;
+  }
+
+  mos_fclose(fh);
+#else
+  FILE *fh = fopen(VAL_STRING(args->head), "r");
+  if (!fh)
+    malthrow("cannot open file");
+
   while (!feof(fh)) {
     buf[0] = '\0';
     fgets(buf, sizeof(buf)-1, fh);
@@ -592,9 +610,7 @@ static MalVal *core_slurp(List *args, ENV *env)
   fclose(fh);
 #endif
 
-  MalVal *rv = malval_string(s);
-  heap_free(s);
-  return rv;
+  return malval_string_own(s);
 }
 
 static MalVal *core_atom(List *args, ENV *env)
@@ -662,13 +678,13 @@ static MalVal *core_nth(List *args, ENV *env)
     return NIL;
 
   MalVal *rv = NULL;
-  int count = args->tail->head->data.number;
+  int count = VAL_NUMBER(args->tail->head);
 
   if (VAL_TYPE(args->head) == TYPE_LIST) {
     rv = list_nth(VAL_LIST(args->head), count);
   }
   else if (VAL_TYPE(args->head) == TYPE_VECTOR) {
-    if (count >= vec_count(VAL_VEC(args->head)))
+    if ((unsigned)count >= vec_count(VAL_VEC(args->head)))
       rv = NULL;
     else
       rv = vec_get(VAL_VEC(args->head), count);
@@ -929,7 +945,7 @@ static MalVal *core_get(List *args, ENV *env)
       exception = malval_string("Invalid index");
       return NIL;
     }
-    if (VAL_NUMBER(index) >= vec_count(vec))
+    if ((unsigned)VAL_NUMBER(index) >= vec_count(vec))
       return not_found;
     return vec_get(vec, VAL_NUMBER(index));
   }
@@ -957,7 +973,7 @@ static MalVal *core_contains(List *args, ENV *env)
       exception = malval_string("Invalid index");
       return NIL;
     }
-    return VAL_NUMBER(index) >= 0 && VAL_NUMBER(index) < vec_count(vec) ? T : F;
+    return VAL_NUMBER(index) >= 0 && (unsigned)VAL_NUMBER(index) < vec_count(vec) ? T : F;
   }
 
   malthrow("contains? requires vec or map");
@@ -982,14 +998,31 @@ static MalVal *core_vals(List *args, ENV *env)
 
 static MalVal *core_readline(List *args, ENV *env)
 {
+  char buf[256];
+
   if (!builtins_args_check(args, 1, 1, types_string))
     return NIL;
 
+  fputs(VAL_STRING(args->head), stdout);
+
 #ifdef AGON_LIGHT
-#error NIY
+  char c = mos_editline(buf, sizeof(buf)-1, 0x05);
+  fputs("\n", stdout);
+  if (c == 27) {
+    buf[0] = '\0';
+  } else {
+    /* need to add whitespace to terminate the token */
+    int l = strlen(buf);
+    buf[l] = ' ';
+    buf[l+1] = '\0';
+  }
+
+  if (buf[0] == '\n' && buf[1] == '\0')
+    return malval_string("");
+
+  return malval_string(buf);
 #else
-  char buf[256], *s;
-  fputs(args->head->data.string, stdout);
+  char *s;
 
   if ((s = fgets(buf, 255, stdin)) == NULL)
     return NIL;
@@ -1006,7 +1039,7 @@ static MalVal *core_time_ms(List *args, ENV *env)
     return NIL;
 
 #ifdef AGON_LIGHT
-#error NIY
+  return malval_number(10L * getsysvar_time());
 #else
   struct timeval tv;
   if (gettimeofday(&tv, NULL) < 0) {
@@ -1018,8 +1051,6 @@ static MalVal *core_time_ms(List *args, ENV *env)
   long time = (long)tv.tv_sec * 1000L + (long)tv.tv_usec / 1000L;
   return malval_number((int)(time-epoch));
 #endif
-
-  return NIL;
 }
 
 static MalVal *core_is_fn(List *args, ENV *env)

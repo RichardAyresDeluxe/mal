@@ -243,12 +243,12 @@ uint16_t vec_hash(Vec *vec)
 
 bool vec_equals(Vec *a, Vec *b)
 {
-  int c = vec_count(a);
+  unsigned c = vec_count(a);
 
   if (c != vec_count(b))
     return FALSE;
 
-  for (int i = 0; i < c; i++) {
+  for (int i = 0; (unsigned)i < c; i++) {
     if (!malval_equals(vec_get(a, i), vec_get(b, i)))
       return FALSE;
   }
