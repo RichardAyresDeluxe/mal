@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:24.04
 MAINTAINER Duncan Watts <fungiblecog@gmail.com>
 
 ##########################################################
@@ -9,10 +9,8 @@ MAINTAINER Duncan Watts <fungiblecog@gmail.com>
 RUN apt-get -y update
 
 # Required for running tests
-RUN apt-get -y install make python
-
-# Some typical implementation and test requirements
-#RUN apt-get -y install curl
+RUN apt-get -y install make python3
+RUN ln -fs /usr/bin/python3 /usr/local/bin/python
 
 RUN mkdir -p /mal
 WORKDIR /mal
@@ -25,4 +23,4 @@ WORKDIR /mal
 RUN apt-get -y install gcc
 
 # Libraries needed for the C impl
-RUN apt-get -y install libffi-dev libgc-dev libedit-dev
+RUN apt-get -y install libffi-dev libgc-dev libedit-dev pkgconf

@@ -1,15 +1,14 @@
+let eval ast = ast
 let read str = Reader.read_str str
-let eval ast any = ast
-let print exp = Printer.pr_str exp true
-let rep str = print (eval (read str) "")
+let print = Printer.pr_str true
 
-let rec main =
+let main =
   try
     while true do
-      print_string "user> ";
+      Format.printf "user> %!";
       let line = read_line () in
-        try
-          print_endline (rep line);
-        with End_of_file -> ()
+      try Format.printf "%a\n" print (eval (read line)) with
+      | Types.MalExn exc -> Format.printf "mal exception: %a\n" print exc
+      | e -> Format.printf "ocaml exception: %s\n" (Printexc.to_string e)
     done
-  with End_of_file -> ()
+  with End_of_file -> Format.printf "\n"

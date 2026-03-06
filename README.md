@@ -1,6 +1,6 @@
 # mal - Make a Lisp
 
-[![Build Status](https://travis-ci.org/kanaka/mal.svg?branch=master)](https://travis-ci.org/kanaka/mal)
+[![Build and Test](https://github.com/kanaka/mal/actions/workflows/main.yml/badge.svg)](https://github.com/kanaka/mal/actions/workflows/main.yml)
 
 ## Description
 
@@ -16,39 +16,39 @@ guide](process/guide.md).
 
 The make-a-lisp steps are:
 
-* [step0_repl](process/guide.md#step0)
-* [step1_read_print](process/guide.md#step1)
-* [step2_eval](process/guide.md#step2)
-* [step3_env](process/guide.md#step3)
-* [step4_if_fn_do](process/guide.md#step4)
-* [step5_tco](process/guide.md#step5)
-* [step6_file](process/guide.md#step6)
-* [step7_quote](process/guide.md#step7)
-* [step8_macros](process/guide.md#step8)
-* [step9_try](process/guide.md#step9)
-* [stepA_mal](process/guide.md#stepA)
+* [step0_repl](process/guide.md#step-0-the-repl)
+* [step1_read_print](process/guide.md#step-1-read-and-print)
+* [step2_eval](process/guide.md#step-2-eval)
+* [step3_env](process/guide.md#step-3-environments)
+* [step4_if_fn_do](process/guide.md#step-4-if-fn-do)
+* [step5_tco](process/guide.md#step-5-tail-call-optimization)
+* [step6_file](process/guide.md#step-6-files-mutation-and-evil)
+* [step7_quote](process/guide.md#step-7-quoting)
+* [step8_macros](process/guide.md#step-8-macros)
+* [step9_try](process/guide.md#step-9-try)
+* [stepA_mal](process/guide.md#step-a-metadata-self-hosting-and-interop)
 
 Each make-a-lisp step has an associated architectural diagram. That elements
 that are new for that step are highlighted in red.
-Here is the final diagram for [step A](process/guide.md#stepA):
+Here is the final architecture once [step A](process/guide.md#stepA)
+is complete:
 
-![stepA_mal architecture](process/stepA_mal.png)
+![stepA_mal architecture](process/steps.png)
 
 If you are interested in creating a mal implementation (or just
-interested in using mal for something), you are welcome to to join our
-[Discord](https://discord.gg/CKgnNbJBpF) or join #mal on
-[libera.chat](https://libera.chat/). In addition to the [make-a-lisp
+interested in using mal for something) you are welcome to to join our
+[Discord](https://discord.gg/CKgnNbJBpF). In addition to the [make-a-lisp
 process guide](process/guide.md) there is also a [mal/make-a-lisp
 FAQ](docs/FAQ.md) where I attempt to answer some common questions.
 
 
-**3. Mal is implemented in 87 languages (93 different implementations and 115 runtime modes)**
+**3. Mal is implemented in 89 languages (95 different implementations and 118 runtime modes)**
 
 | Language | Creator |
 | -------- | ------- |
 | [Ada](#ada) | [Chris Moore](https://github.com/zmower) |
 | [Ada #2](#ada2) | [Nicolas Boulenguez](https://github.com/asarhaddon) |
-| [GNU Awk](#gnu-awk) | [Miutsuru Kariya](https://github.com/kariya-mitsuru) |
+| [GNU Awk](#gnu-awk) | [Mitsuru Kariya](https://github.com/kariya-mitsuru) |
 | [Bash 4](#bash-4) | [Joel Martin](https://github.com/kanaka)  |
 | [BASIC](#basic-c64-and-qbasic) (C64 &amp; QBasic) | [Joel Martin](https://github.com/kanaka) |
 | [BBC BASIC V](#bbc-basic-v) | [Ben Harris](https://github.com/bjh21) |
@@ -77,17 +77,19 @@ FAQ](docs/FAQ.md) where I attempt to answer some common questions.
 | [GNU Smalltalk](#gnu-smalltalk) | [Vasilij Schneidermann](https://github.com/wasamasa) |
 | [Go](#go) | [Joel Martin](https://github.com/kanaka)  |
 | [Groovy](#groovy) | [Joel Martin](https://github.com/kanaka)  |
+| [Hare](#hare) | [Lou Woell](http://github.com/einsiedlerspiel) |
 | [Haskell](#haskell) | [Joel Martin](https://github.com/kanaka)  |
 | [Haxe](#haxe-neko-python-c-and-javascript) (Neko, Python, C++, &amp; JS) | [Joel Martin](https://github.com/kanaka) |
 | [Hy](#hy) | [Joel Martin](https://github.com/kanaka)  |
 | [Io](#io) | [Dov Murik](https://github.com/dubek) |
 | [Janet](#janet) | [sogaiu](https://github.com/sogaiu) |
 | [Java](#java-17) | [Joel Martin](https://github.com/kanaka)  |
-| [Java](#java-using-truffle-for-graalvm) (Truffle/GraalVM) | [Matt McGill](https://github.com/mmcgill)
+| [Java Truffle](#java-using-truffle-for-graalvm) (Truffle/GraalVM) | [Matt McGill](https://github.com/mmcgill) |
 | [JavaScript](#javascriptnode) ([Demo](http://kanaka.github.io/mal)) | [Joel Martin](https://github.com/kanaka) |
 | [jq](#jq) | [Ali MohammadPur](https://github.com/alimpfard) |
 | [Julia](#julia) | [Joel Martin](https://github.com/kanaka)  |
 | [Kotlin](#kotlin) | [Javier Fernandez-Ivern](https://github.com/ivern) |
+| [LaTeX3](#latex3) | [Nicolas Boulenguez](https://github.com/asarhaddon) |
 | [LiveScript](#livescript) | [Jos van Bakel](https://github.com/c0deaddict) |
 | [Logo](#logo) | [Dov Murik](https://github.com/dubek) |
 | [Lua](#lua) | [Joel Martin](https://github.com/kanaka)  |
@@ -111,8 +113,8 @@ FAQ](docs/FAQ.md) where I attempt to answer some common questions.
 | [PowerShell](#powershell) | [Joel Martin](https://github.com/kanaka)  |
 | [Prolog](#prolog-logical-language) | [Nicolas Boulenguez](https://github.com/asarhaddon) |
 | [PureScript](#purescript) | [mrsekut](https://github.com/mrsekut) |
-| [Python](#python-2x-and-3x) (2.X &amp; 3.X) | [Joel Martin](https://github.com/kanaka) |
-| [Python #2](#python2-3x) (3.X) | [Gavin Lewis](https://github.com/epylar) |
+| [Python2](#python2) | [Joel Martin](https://github.com/kanaka) |
+| [Python3](#python3) | [Gavin Lewis](https://github.com/epylar) |
 | [RPython](#rpython) | [Joel Martin](https://github.com/kanaka)  |
 | [R](#r) | [Joel Martin](https://github.com/kanaka)  |
 | [Racket](#racket-53) | [Joel Martin](https://github.com/kanaka)  |
@@ -124,16 +126,16 @@ FAQ](docs/FAQ.md) where I attempt to answer some common questions.
 | [Scheme (R7RS)](#scheme-r7rs) | [Vasilij Schneidermann](https://github.com/wasamasa) |
 | [Skew](#skew) | [Dov Murik](https://github.com/dubek) |
 | [Standard ML](#sml) | [Fabian Bergström](https://github.com/fabjan) |
-| [Swift 2](#swift) | [Keith Rollin](https://github.com/keith-rollin) |
 | [Swift 3](#swift-3) | [Joel Martin](https://github.com/kanaka)  |
 | [Swift 4](#swift-4) | [陆遥](https://github.com/LispLY)  |
-| [Swift 5](#swift-5) | [Oleg Montak](https://github.com/MontakOleg)  |
+| [Swift 6](#swift-6) | [Oleg Montak](https://github.com/MontakOleg)  |
 | [Tcl](#tcl-86) | [Dov Murik](https://github.com/dubek) |
 | [TypeScript](#typescript) | [Masahiro Wakame](https://github.com/vvakame) |
 | [Vala](#vala) | [Simon Tatham](https://github.com/sgtatham) |
 | [VHDL](#vhdl) | [Dov Murik](https://github.com/dubek) |
 | [Vimscript](#vimscript) | [Dov Murik](https://github.com/dubek) |
 | [Visual Basic.NET](#visual-basicnet) | [Joel Martin](https://github.com/kanaka)  |
+| [Visual Basic Script](#visual-basic-script) | [刘百超](https://github.com/OldLiu001)  |
 | [WebAssembly](#webassembly-wasm) (wasm) | [Joel Martin](https://github.com/kanaka) |
 | [Wren](#wren) | [Dov Murik](https://github.com/dubek) |
 | [XSLT](#xslt) | [Ali MohammadPur](https://github.com/alimpfard) |
@@ -175,7 +177,7 @@ make DOCKERIZE=1 "repl^IMPL^stepX"
 make DOCKERIZE=1 "repl^IMPL"
 ```
 
-## External Implementations
+## External / Alternate Implementations
 
 The following implementations are maintained as separate projects:
 
@@ -187,6 +189,10 @@ The following implementations are maintained as separate projects:
 
 * [by Tim Morgan](https://github.com/seven1m/mal-rust)
 * [by vi](https://github.com/vi/mal-rust-vi) - using [Pest](https://pest.rs/) grammar, not using typical Mal infrastructure (cargo-ized steps and built-in converted tests).
+
+### Swift 2
+
+* [by Keith Rollin](https://github.com/kanaka/mal/tree/fbfe678/impls/swift) - This implementation used to be in the repo. However, Swift 2 is no longer easily buildable/testable.
 
 ### Q
 
@@ -200,6 +206,7 @@ The following implementations are maintained as separate projects:
  * [frock](https://github.com/chr15m/frock) - Clojure-flavoured PHP. Uses mal/php to run programs.
  * [flk](https://github.com/chr15m/flk) - A LISP that runs wherever Bash is
  * [glisp](https://github.com/baku89/glisp) - Self-bootstrapping graphic design tool on Lisp. [Live Demo](https://baku89.com/glisp/)
+ * [mal2py-compiler](https://github.com/jcguu95/mal2py-compiler) - MAL-to-Python. A fork of the python3 implementation that compiles mal to python with a 16x performance improvement on the perf3 synthetic benchmark.
 
 
 ## Implementation Details
@@ -247,26 +254,27 @@ bash stepX_YYY.sh
 ### BASIC (C64 and QBasic)
 
 The BASIC implementation uses a preprocessor that can generate BASIC
-code that is compatible with both C64 BASIC (CBM v2) and QBasic. The
+code that is compatible with both C64 BASIC (CBM v2) or QBasic. The
 C64 mode has been tested with
 [cbmbasic](https://github.com/kanaka/cbmbasic) (the patched version is
 currently required to fix issues with line input) and the QBasic mode
-has been tested with [qb64](http://www.qb64.net/).
+has been tested with [FreeBASIC](freebasic.net).
 
 Generate C64 code and run it using cbmbasic:
 
 ```
 cd impls/basic
-make stepX_YYY.bas
-STEP=stepX_YYY ./run
+make MODE=cbm stepX_YYY.bas
+STEP=stepX_YYY basic_MODE=cbm ./run
 ```
 
-Generate QBasic code and load it into qb64:
+Generate QBasic code, compile using FreeBASIC, and execute it:
 
 ```
 cd impls/basic
 make MODE=qbasic stepX_YYY.bas
-./qb64 stepX_YYY.bas
+make MODE=qbasic stepX_YYY
+./stepX_YYY
 ```
 
 Thanks to [Steven Syrek](https://github.com/sjsyrek) for the original
@@ -562,6 +570,16 @@ make
 groovy ./stepX_YYY.groovy
 ```
 
+### Hare
+
+The hare implementation was tested against Hare 0.25.2.
+
+```
+cd impls/hare
+make
+./stepX_YYY
+```
+
 ### Haskell
 
 The Haskell implementation requires the ghc compiler version 7.10.1 or
@@ -685,6 +703,18 @@ make
 java -jar stepX_YYY.jar
 ```
 
+### LaTeX3
+
+The LaTeX3 implementation of mal has been tested with pdfTeX
+3.141592653-2.6-1.40.24.
+
+Self hosting is too slow for any sensible timeout, and crashes in
+step4, apparently because of hard-coded limitations.
+
+Anybody working on this should uncomment the two lines of (slow)
+debugging options in the step file, and export DEBUG=1 (for more
+output than tests accept).
+
 ### LiveScript
 
 The LiveScript implementation of mal has been tested with LiveScript 1.5.
@@ -772,7 +802,7 @@ make
 
 The Objective C implementation of mal has been built and tested on
 Linux using clang/LLVM 3.6. It has also been built and tested on OS
-X using XCode 7.
+X using Xcode 7.
 
 ```
 cd impls/objc
@@ -948,22 +978,17 @@ make
 node ./stepX_YYY.js
 ```
 
-### Python (2.X and 3.X)
+### Python2
 
-```
-cd impls/python
-python stepX_YYY.py
-```
+This implementation only uses python2 features, but avoids
+incompatibilities with python3.
 
-### Python.2 (3.X)
+### Python3
 
-The second Python implementation makes heavy use of type annotations and uses the Arpeggio parser library.
-
-```
-# Recommended: do these steps in a Python virtual environment.
-pip3 install Arpeggio==1.9.0
-python3 stepX_YYY.py
-```
+This implementation is checked for style and types
+(flake8, pylint, mypy).  It reports all errors with details.
+It demonstrates iterators, decorators, functional tools, chain maps,
+dataclasses, introspection, match statements, assignement expressions.
 
 ### RPython
 
@@ -1110,18 +1135,6 @@ make sml_MODE=mosml
 ```
 
 
-### Swift
-
-The Swift implementation of mal requires the Swift 2.0 compiler (XCode
-7.0) to build. Older versions will not work due to changes in the
-language and standard library.
-
-```
-cd impls/swift
-make
-./stepX_YYY
-```
-
 ### Swift 3
 
 The Swift 3 implementation of mal requires the Swift 3.0 compiler. It
@@ -1150,7 +1163,7 @@ The Swift 5 implementation of mal requires the Swift 5.0 compiler. It
 has been tested with Swift 5.1.1 release.
 
 ```
-cd impls/swift5
+cd impls/swift6
 swift run stepX_YYY
 ```
 
@@ -1218,6 +1231,19 @@ make
 mono ./stepX_YYY.exe
 ```
 
+### Visual Basic Script ###
+
+The VBScript implementation of mal has been tested on Windows 10 1909.
+`install.vbs` can help you install the requirements (.NET 2.0 3.0 3.5).
+If you havn't install `.NET 2.0 3.0 3.5`, it will popup a window for installation.
+If you already installed that, it will do nothing.
+
+```
+cd impls\vbs
+install.vbs
+cscript -nologo stepX_YYY.vbs
+```
+
 ### WebAssembly (wasm) ###
 
 The WebAssembly implementation is written in
@@ -1226,7 +1252,6 @@ runs under several different non-web embeddings (runtimes):
 [node](https://nodejs.org),
 [wasmtime](https://github.com/CraneStation/wasmtime),
 [wasmer](https://wasmer.io),
-[lucet](https://github.com/fastly/lucet),
 [wax](https://github.com/kanaka/wac),
 [wace](https://github.com/kanaka/wac),
 [warpy](https://github.com/kanaka/warpy).
@@ -1242,9 +1267,6 @@ wasmtime --dir=./ --dir=../ --dir=/ ./stepX_YYY.wasm
 # wasmer
 make wasm_MODE=wasmer
 wasmer run --dir=./ --dir=../ --dir=/ ./stepX_YYY.wasm
-# lucet
-make wasm_MODE=lucet
-lucet-wasi --dir=./:./ --dir=../:../ --dir=/:/ ./stepX_YYY.so
 # wax
 make wasm_MODE=wax
 wax ./stepX_YYY.wasm
@@ -1360,7 +1382,7 @@ make MAL_IMPL=IMPL "test^mal^step2"
 # e.g.
 make "test^mal^step2"   # js is default
 make MAL_IMPL=ruby "test^mal^step2"
-make MAL_IMPL=python "test^mal^step2"
+make MAL_IMPL=python3 "test^mal^step2"
 ```
 
 ### Starting the REPL
@@ -1394,7 +1416,7 @@ make MAL_IMPL=IMPL "repl^mal^stepX"
 # e.g.
 make "repl^mal^step2"   # js is default
 make MAL_IMPL=ruby "repl^mal^step2"
-make MAL_IMPL=python "repl^mal"
+make MAL_IMPL=python3 "repl^mal"
 ```
 
 ### Performance tests
@@ -1452,7 +1474,7 @@ make "docker-build^IMPL"
 
 
 **Notes**:
-* Docker images are named *"kanaka/mal-test-IMPL"*
+* Docker images are named *"ghcr.io/kanaka/mal-test-IMPL"*
 * JVM-based language implementations (Groovy, Java, Clojure, Scala):
   you will probably need to run this command once manually
   first `make DOCKERIZE=1 "repl^IMPL"` before you can run tests because

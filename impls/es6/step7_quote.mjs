@@ -1,10 +1,10 @@
-import rl from './node_readline.js'
+import rl from './node_readline.mjs'
 const readline = rl.readline
-import { _list_Q, _malfunc, _malfunc_Q, Vector } from './types'
-import { BlankException, read_str } from './reader'
-import { pr_str } from './printer'
-import { new_env, env_set, env_get } from './env'
-import { core_ns } from './core'
+import { _list_Q, _malfunc, _malfunc_Q, Vector } from './types.mjs'
+import { BlankException, read_str } from './reader.mjs'
+import { pr_str } from './printer.mjs'
+import { new_env, env_set, env_get } from './env.mjs'
+import { core_ns } from './core.mjs'
 
 // read
 const READ = str => read_str(str)
@@ -33,24 +33,30 @@ const quasiquote = ast => {
         return ast
     }
 }
-const eval_ast = (ast, env) => {
+
+const dbgevalsym = Symbol.for("DEBUG-EVAL")
+
+const EVAL = (ast, env) => {
+  while (true) {
+    if (dbgevalsym in env) {
+        const dbgeval = env_get(env, dbgevalsym)
+        if (dbgeval !== null && dbgeval !== false) {
+            console.log('EVAL:', pr_str(ast, true))
+        }
+    }
+
     if (typeof ast === 'symbol') {
         return env_get(env, ast)
-    } else if (ast instanceof Array) {
+    } else if (ast instanceof Vector) {
         return ast.map(x => EVAL(x, env))
     } else if (ast instanceof Map) {
         let new_hm = new Map()
         ast.forEach((v, k) => new_hm.set(k, EVAL(v, env)))
         return new_hm
-    } else {
+    } else if (!_list_Q(ast)) {
         return ast
     }
-}
 
-const EVAL = (ast, env) => {
-  while (true) {
-    //console.log('EVAL:', pr_str(ast, true))
-    if (!_list_Q(ast)) { return eval_ast(ast, env) }
     if (ast.length === 0) { return ast }
 
     const [a0, a1, a2, a3] = ast
@@ -67,13 +73,11 @@ const EVAL = (ast, env) => {
             break // continue TCO loop
         case 'quote':
             return a1
-        case 'quasiquoteexpand':
-            return quasiquote(a1)
         case 'quasiquote':
             ast = quasiquote(a1)
             break // continue TCO loop
         case 'do':
-            eval_ast(ast.slice(1,-1), env)
+            ast.slice(1, -1).map(x => EVAL(x, env))
             ast = ast[ast.length-1]
             break // continue TCO loop
         case 'if':
@@ -88,7 +92,7 @@ const EVAL = (ast, env) => {
             return _malfunc((...args) => EVAL(a2, new_env(env, a1, args)),
                             a2, env, a1)
         default:
-            let [f, ...args] = eval_ast(ast, env)
+            const [f, ...args] = ast.map(x => EVAL(x, env))
             if (_malfunc_Q(f)) {
                 env = new_env(f.env, f.params, args)
                 ast = f.ast

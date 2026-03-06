@@ -9,15 +9,16 @@
   ocaml step0_repl.ml
 *)
 
+let eval ast = ast
 let read str = str
-let eval ast any = ast
 let print exp = exp
-let rep str = print (eval (read str) "")
+let rep str = print (eval (read str))
 
-let rec main =
+let main =
   try
     while true do
-      print_string "user> ";
-      print_endline (rep (read_line ()));
+      Format.printf "user> %!";
+      let line = read_line () in
+      Format.printf "%s\n" (rep line)
     done
-  with End_of_file -> ()
+  with End_of_file -> Format.printf "\n"
